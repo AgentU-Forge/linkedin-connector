@@ -4,93 +4,93 @@
 
 @layer base {
   :root {
-    --background: 210 20% 96%;
-    --foreground: 214 32% 14%;
+    --background: 30 20% 95%;
+    --foreground: 25 30% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 214 32% 14%;
+    --card: 30 15% 99%;
+    --card-foreground: 25 30% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 214 32% 14%;
+    --popover: 30 15% 99%;
+    --popover-foreground: 25 30% 12%;
 
-    --primary: 210 78% 42%;
+    --primary: 25 55% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 93%;
-    --secondary-foreground: 214 32% 14%;
+    --secondary: 30 18% 90%;
+    --secondary-foreground: 25 30% 12%;
 
-    --muted: 210 16% 93%;
-    --muted-foreground: 215 14% 46%;
+    --muted: 30 14% 91%;
+    --muted-foreground: 25 10% 45%;
 
-    --accent: 210 20% 93%;
-    --accent-foreground: 214 32% 14%;
+    --accent: 30 18% 90%;
+    --accent-foreground: 25 30% 12%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 210 78% 42%;
+    --border: 30 16% 85%;
+    --input: 30 16% 85%;
+    --ring: 25 55% 35%;
 
     --radius: 0.5rem;
 
-    --linkedin-blue: 210 78% 42%;
-    --linkedin-blue-hover: 210 78% 35%;
-    --linkedin-green: 142 64% 38%;
-    --linkedin-warm: 38 92% 50%;
+    --linkedin-blue: 25 55% 35%;
+    --linkedin-blue-hover: 25 55% 28%;
+    --linkedin-green: 142 50% 38%;
+    --linkedin-warm: 30 80% 50%;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 214 32% 14%;
-    --sidebar-primary: 210 78% 42%;
+    --sidebar-background: 30 15% 99%;
+    --sidebar-foreground: 25 30% 12%;
+    --sidebar-primary: 25 55% 35%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 20% 93%;
-    --sidebar-accent-foreground: 214 32% 14%;
-    --sidebar-border: 214 20% 88%;
-    --sidebar-ring: 210 78% 42%;
+    --sidebar-accent: 30 18% 90%;
+    --sidebar-accent-foreground: 25 30% 12%;
+    --sidebar-border: 30 16% 85%;
+    --sidebar-ring: 25 55% 35%;
   }
 
   .dark {
-    --background: 222 20% 8%;
-    --foreground: 210 20% 96%;
+    --background: 25 18% 8%;
+    --foreground: 30 15% 92%;
 
-    --card: 222 20% 12%;
-    --card-foreground: 210 20% 96%;
+    --card: 25 18% 12%;
+    --card-foreground: 30 15% 92%;
 
-    --popover: 222 20% 12%;
-    --popover-foreground: 210 20% 96%;
+    --popover: 25 18% 12%;
+    --popover-foreground: 30 15% 92%;
 
-    --primary: 210 78% 52%;
+    --primary: 25 50% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 16% 18%;
-    --secondary-foreground: 210 20% 96%;
+    --secondary: 25 14% 18%;
+    --secondary-foreground: 30 15% 92%;
 
-    --muted: 222 16% 18%;
-    --muted-foreground: 215 14% 60%;
+    --muted: 25 14% 18%;
+    --muted-foreground: 25 10% 58%;
 
-    --accent: 222 16% 18%;
-    --accent-foreground: 210 20% 96%;
+    --accent: 25 14% 18%;
+    --accent-foreground: 30 15% 92%;
 
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 16% 22%;
-    --input: 222 16% 22%;
-    --ring: 210 78% 52%;
+    --border: 25 14% 22%;
+    --input: 25 14% 22%;
+    --ring: 25 50% 45%;
 
-    --linkedin-blue: 210 78% 52%;
-    --linkedin-blue-hover: 210 78% 58%;
-    --linkedin-green: 142 64% 45%;
-    --linkedin-warm: 38 92% 55%;
+    --linkedin-blue: 25 50% 45%;
+    --linkedin-blue-hover: 25 50% 52%;
+    --linkedin-green: 142 50% 42%;
+    --linkedin-warm: 30 80% 55%;
 
-    --sidebar-background: 222 20% 10%;
-    --sidebar-foreground: 210 20% 96%;
-    --sidebar-primary: 210 78% 52%;
+    --sidebar-background: 25 18% 10%;
+    --sidebar-foreground: 30 15% 92%;
+    --sidebar-primary: 25 50% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 16% 18%;
-    --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 222 16% 22%;
-    --sidebar-ring: 210 78% 52%;
+    --sidebar-accent: 25 14% 18%;
+    --sidebar-accent-foreground: 30 15% 92%;
+    --sidebar-border: 25 14% 22%;
+    --sidebar-ring: 25 50% 45%;
   }
 }
 
