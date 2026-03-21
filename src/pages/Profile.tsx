@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/lib/storage';
@@ -9,8 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Camera, Pencil, Plus, MapPin, Globe, Briefcase, GraduationCap, X } from 'lucide-react';
+import {
+  Camera, Pencil, Plus, MapPin, Globe, Briefcase, GraduationCap,
+  Eye, BarChart3, Search, Users, MessageSquare, ChevronRight, Shield, Star
+} from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard from '@/components/PostCard';
 
@@ -66,6 +70,19 @@ const Profile = () => {
     queryFn: async () => {
       const { data } = await supabase.from('posts').select('*').eq('user_id', userId!).order('created_at', { ascending: false });
       return data || [];
+    },
+    enabled: !!userId,
+  });
+
+  const { data: connectionCount = 0 } = useQuery({
+    queryKey: ['connection-count', userId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('connections')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`);
+      return count || 0;
     },
     enabled: !!userId,
   });
@@ -129,61 +146,61 @@ const Profile = () => {
   if (!profile) return <div className="text-center py-8 text-muted-foreground">Profile not found</div>;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
-      {/* Header Card */}
-      <Card className="overflow-hidden">
-        <div className="relative h-48 bg-gradient-to-r from-primary/60 to-primary">
-          {profile.cover_url && (
-            <img src={profile.cover_url} alt="" className="w-full h-full object-cover" />
-          )}
-          {isOwn && (
-            <>
-              <input type="file" ref={coverRef} className="hidden" accept="image/*"
-                onChange={e => e.target.files?.[0] && handleImageUpload('covers', 'cover_url', e.target.files[0])} />
-              <Button size="icon" variant="secondary" className="absolute top-2 right-2 h-8 w-8"
-                onClick={() => coverRef.current?.click()}>
-                <Camera className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </div>
-        <CardContent className="p-6 -mt-16 relative">
-          <div className="flex justify-between items-end">
-            <div className="relative">
-              <Avatar className="h-32 w-32 border-4 border-card">
-                <AvatarImage src={profile.avatar_url || ''} />
-                <AvatarFallback className="text-3xl">{profile.full_name?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-5xl mx-auto">
+      {/* Main Column */}
+      <div className="lg:col-span-8 space-y-2">
+        {/* Header Card */}
+        <Card className="overflow-hidden">
+          <div className="relative h-48 bg-gradient-to-r from-primary/60 to-primary">
+            {profile.cover_url && (
+              <img src={profile.cover_url} alt="" className="w-full h-full object-cover" />
+            )}
+            {isOwn && (
+              <>
+                <input type="file" ref={coverRef} className="hidden" accept="image/*"
+                  onChange={e => e.target.files?.[0] && handleImageUpload('covers', 'cover_url', e.target.files[0])} />
+                <Button size="sm" variant="secondary" className="absolute top-3 right-3 gap-1 rounded-full"
+                  onClick={() => coverRef.current?.click()}>
+                  <Camera className="h-4 w-4" /> Enhance cover image
+                </Button>
+              </>
+            )}
+          </div>
+          <CardContent className="px-6 pb-6 -mt-16 relative">
+            <div className="flex justify-between items-start">
+              <div className="relative">
+                <Avatar className="h-36 w-36 border-4 border-card shadow-md">
+                  <AvatarImage src={profile.avatar_url || ''} />
+                  <AvatarFallback className="text-4xl">{profile.full_name?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                {isOwn && (
+                  <>
+                    <input type="file" ref={avatarRef} className="hidden" accept="image/*"
+                      onChange={e => e.target.files?.[0] && handleImageUpload('avatars', 'avatar_url', e.target.files[0])} />
+                    <Button size="icon" variant="secondary" className="absolute bottom-2 right-2 h-8 w-8 rounded-full shadow"
+                      onClick={() => avatarRef.current?.click()}>
+                      <Camera className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
               {isOwn && (
-                <>
-                  <input type="file" ref={avatarRef} className="hidden" accept="image/*"
-                    onChange={e => e.target.files?.[0] && handleImageUpload('avatars', 'avatar_url', e.target.files[0])} />
-                  <Button size="icon" variant="secondary" className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                    onClick={() => avatarRef.current?.click()}>
-                    <Camera className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {isOwn ? (
                 <Dialog open={editOpen} onOpenChange={setEditOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={() => setEditForm({
-                      full_name: profile.full_name || '',
-                      headline: profile.headline || '',
-                      summary: profile.summary || '',
-                      location: profile.location || '',
-                      website: profile.website || '',
-                      industry: profile.industry || '',
-                    })}>
-                      <Pencil className="h-4 w-4 mr-1" /> Edit
+                    <Button variant="ghost" size="icon" className="mt-20"
+                      onClick={() => setEditForm({
+                        full_name: profile.full_name || '',
+                        headline: profile.headline || '',
+                        summary: profile.summary || '',
+                        location: profile.location || '',
+                        website: profile.website || '',
+                        industry: profile.industry || '',
+                      })}>
+                      <Pencil className="h-5 w-5" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Edit Profile</DialogTitle>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
                     <div className="space-y-3">
                       <Input placeholder="Full name" value={editForm.full_name}
                         onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} />
@@ -197,130 +214,307 @@ const Profile = () => {
                         onChange={e => setEditForm(f => ({ ...f, website: e.target.value }))} />
                       <Input placeholder="Industry" value={editForm.industry}
                         onChange={e => setEditForm(f => ({ ...f, industry: e.target.value }))} />
-                      <Button onClick={() => updateProfile.mutate(editForm)} className="w-full">
-                        Save
-                      </Button>
+                      <Button onClick={() => updateProfile.mutate(editForm)} className="w-full">Save</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
+              )}
+            </div>
+
+            <div className="mt-3">
+              <h1 className="text-2xl font-bold">{profile.full_name || 'Your Name'}</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">{profile.headline || 'Add a headline'}</p>
+              <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
+                {profile.location && (
+                  <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{profile.location}</span>
+                )}
+                {profile.website && (
+                  <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                    <Globe className="h-3 w-3" />Contact info
+                  </a>
+                )}
+              </div>
+              <Link to="/network" className="text-sm text-primary font-semibold hover:underline mt-1 inline-block">
+                {connectionCount} connections
+              </Link>
+            </div>
+
+            {/* Action Buttons Row */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {isOwn ? (
+                <>
+                  <Button size="sm" className="rounded-full">Open to</Button>
+                  <Button size="sm" variant="outline" className="rounded-full">Add profile section</Button>
+                  <Button size="sm" variant="outline" className="rounded-full">Enhance profile</Button>
+                  <Button size="sm" variant="secondary" className="rounded-full">Resources</Button>
+                </>
               ) : (
                 <>
                   {!connectionStatus && (
-                    <Button onClick={() => sendConnectionRequest.mutate()} size="sm">
-                      Connect
+                    <Button size="sm" className="rounded-full" onClick={() => sendConnectionRequest.mutate()}>
+                      <Users className="h-4 w-4 mr-1" /> Connect
                     </Button>
                   )}
                   {connectionStatus?.status === 'pending' && (
-                    <Button variant="secondary" size="sm" disabled>Pending</Button>
+                    <Button variant="secondary" size="sm" className="rounded-full" disabled>Pending</Button>
                   )}
                   {connectionStatus?.status === 'accepted' && (
-                    <Button variant="secondary" size="sm" disabled>Connected</Button>
+                    <Badge variant="secondary" className="px-3 py-1.5">Connected</Badge>
                   )}
+                  <Button size="sm" variant="outline" className="rounded-full">
+                    <MessageSquare className="h-4 w-4 mr-1" /> Message
+                  </Button>
                 </>
               )}
             </div>
-          </div>
-          <div className="mt-4">
-            <h1 className="text-2xl font-bold">{profile.full_name || 'Your Name'}</h1>
-            <p className="text-muted-foreground">{profile.headline}</p>
-            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-              {profile.location && (
-                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{profile.location}</span>
-              )}
-              {profile.website && (
-                <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-                  <Globe className="h-3 w-3" />Website
-                </a>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* About */}
-      {profile.summary && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">About</CardTitle></CardHeader>
-          <CardContent><p className="text-sm whitespace-pre-wrap">{profile.summary}</p></CardContent>
+          </CardContent>
         </Card>
-      )}
 
-      {/* Experience */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2"><Briefcase className="h-5 w-5" /> Experience</CardTitle>
-          {isOwn && <AddExperience userId={user!.id} />}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {experiences.map((exp: any) => (
-            <div key={exp.id} className="flex gap-3">
-              <div className="h-10 w-10 rounded bg-secondary flex items-center justify-center flex-shrink-0">
-                <Briefcase className="h-5 w-5 text-muted-foreground" />
+        {/* Suggested for you */}
+        {isOwn && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Suggested for you</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Eye className="h-3 w-3 inline" /> Private to you</span>
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-primary" />
+                    <span className="font-semibold text-sm">Which industry do you work in?</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Members who add an industry receive up to 2.5 times as many profile views.</p>
+                  <Button variant="outline" size="sm" className="rounded-full text-primary border-primary" onClick={() => {
+                    setEditForm({
+                      full_name: profile.full_name || '', headline: profile.headline || '',
+                      summary: profile.summary || '', location: profile.location || '',
+                      website: profile.website || '', industry: profile.industry || '',
+                    });
+                    setEditOpen(true);
+                  }}>Add industry</Button>
+                </div>
+                <div className="border rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-primary" />
+                    <span className="font-semibold text-sm">Write a summary to highlight your personality</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Members who include a summary receive up to 3.9 times as many profile views.</p>
+                  <Button variant="outline" size="sm" className="rounded-full text-primary border-primary" onClick={() => {
+                    setEditForm({
+                      full_name: profile.full_name || '', headline: profile.headline || '',
+                      summary: profile.summary || '', location: profile.location || '',
+                      website: profile.website || '', industry: profile.industry || '',
+                    });
+                    setEditOpen(true);
+                  }}>Add a summary</Button>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-sm">{exp.title}</p>
-                <p className="text-sm text-muted-foreground">{exp.company}</p>
-                <p className="text-xs text-muted-foreground">{exp.start_date} – {exp.is_current ? 'Present' : exp.end_date}</p>
-                {exp.description && <p className="text-sm mt-1">{exp.description}</p>}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Analytics */}
+        {isOwn && (
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Analytics</CardTitle>
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><Eye className="h-3 w-3" /> Private to you</span>
               </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-start gap-3">
+                  <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-sm">{connectionCount} profile views</p>
+                    <p className="text-xs text-muted-foreground">Discover who's viewed your profile.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <BarChart3 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-sm">{posts.length} post impressions</p>
+                    <p className="text-xs text-muted-foreground">Start a post to increase engagement.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Search className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-sm">0 search appearances</p>
+                    <p className="text-xs text-muted-foreground">See how often you appear in search.</p>
+                  </div>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="w-full mt-3 text-muted-foreground">
+                Show all analytics <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* About */}
+        {profile.summary && (
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle className="text-base">About</CardTitle>
+              {isOwn && (
+                <Button variant="ghost" size="icon" onClick={() => {
+                  setEditForm({
+                    full_name: profile.full_name || '', headline: profile.headline || '',
+                    summary: profile.summary || '', location: profile.location || '',
+                    website: profile.website || '', industry: profile.industry || '',
+                  });
+                  setEditOpen(true);
+                }}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent><p className="text-sm whitespace-pre-wrap">{profile.summary}</p></CardContent>
+          </Card>
+        )}
+
+        {/* Activity */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Activity</CardTitle>
+              <p className="text-xs text-muted-foreground">{posts.length} posts</p>
             </div>
-          ))}
-          {experiences.length === 0 && <p className="text-sm text-muted-foreground">No experience added yet.</p>}
-        </CardContent>
-      </Card>
+            {isOwn && (
+              <Button variant="outline" size="sm" className="rounded-full">Create a post</Button>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {posts.slice(0, 3).map((post: any) => <PostCard key={post.id} post={post} />)}
+            {posts.length === 0 && <p className="text-sm text-muted-foreground">No posts yet.</p>}
+            {posts.length > 3 && (
+              <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
+                Show all comments <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Education */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2"><GraduationCap className="h-5 w-5" /> Education</CardTitle>
-          {isOwn && <AddEducation userId={user!.id} />}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {education.map((edu: any) => (
-            <div key={edu.id} className="flex gap-3">
-              <div className="h-10 w-10 rounded bg-secondary flex items-center justify-center flex-shrink-0">
-                <GraduationCap className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm">{edu.school}</p>
-                <p className="text-sm text-muted-foreground">{edu.degree}{edu.field_of_study ? `, ${edu.field_of_study}` : ''}</p>
-                <p className="text-xs text-muted-foreground">{edu.start_date} – {edu.end_date || 'Present'}</p>
-              </div>
+        {/* Experience */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-5 w-5" /> Experience</CardTitle>
+            <div className="flex items-center gap-1">
+              {isOwn && <AddExperience userId={user!.id} />}
+              {isOwn && (
+                <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
+              )}
             </div>
-          ))}
-          {education.length === 0 && <p className="text-sm text-muted-foreground">No education added yet.</p>}
-        </CardContent>
-      </Card>
-
-      {/* Skills */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="text-lg">Skills</CardTitle>
-          {isOwn && <AddSkill userId={user!.id} />}
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((s: any) => (
-              <span key={s.id} className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm">
-                {s.name}
-              </span>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {experiences.map((exp: any) => (
+              <div key={exp.id} className="flex gap-3">
+                <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">{exp.title}</p>
+                  <p className="text-sm">{exp.company} · {exp.location || 'Full-time'}</p>
+                  <p className="text-xs text-muted-foreground">{exp.start_date} – {exp.is_current ? 'Present' : exp.end_date}</p>
+                  {exp.description && <p className="text-sm mt-2 text-muted-foreground">{exp.description}</p>}
+                </div>
+              </div>
             ))}
-            {skills.length === 0 && <p className="text-sm text-muted-foreground">No skills added yet.</p>}
-          </div>
-        </CardContent>
-      </Card>
+            {experiences.length === 0 && <p className="text-sm text-muted-foreground">No experience added yet.</p>}
+          </CardContent>
+        </Card>
 
-      {/* Posts */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Activity</h2>
-        {posts.map((post: any) => <PostCard key={post.id} post={post} />)}
-        {posts.length === 0 && <p className="text-sm text-muted-foreground">No posts yet.</p>}
+        {/* Education */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><GraduationCap className="h-5 w-5" /> Education</CardTitle>
+            <div className="flex items-center gap-1">
+              {isOwn && <AddEducation userId={user!.id} />}
+              {isOwn && (
+                <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {education.map((edu: any) => (
+              <div key={edu.id} className="flex gap-3">
+                <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center flex-shrink-0">
+                  <GraduationCap className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{edu.school}</p>
+                  <p className="text-sm text-muted-foreground">{edu.degree}{edu.field_of_study ? `, ${edu.field_of_study}` : ''}</p>
+                  <p className="text-xs text-muted-foreground">{edu.start_date} – {edu.end_date || 'Present'}</p>
+                </div>
+              </div>
+            ))}
+            {education.length === 0 && <p className="text-sm text-muted-foreground">No education added yet.</p>}
+          </CardContent>
+        </Card>
+
+        {/* Skills */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><Shield className="h-5 w-5" /> Skills</CardTitle>
+            <div className="flex items-center gap-1">
+              {isOwn && <AddSkill userId={user!.id} />}
+              {isOwn && (
+                <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {skills.map((s: any) => (
+                <div key={s.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <span className="text-sm font-medium">{s.name}</span>
+                </div>
+              ))}
+              {skills.length === 0 && <p className="text-sm text-muted-foreground">No skills added yet.</p>}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Right Sidebar */}
+      <aside className="lg:col-span-4 space-y-2 hidden lg:block">
+        <Card className="sticky top-20">
+          <CardContent className="p-4 space-y-4">
+            <div>
+              <h3 className="font-semibold text-sm mb-1">Profile language</h3>
+              <p className="text-xs text-muted-foreground">English</p>
+            </div>
+            <div className="border-t pt-3">
+              <h3 className="font-semibold text-sm mb-1">Public profile & URL</h3>
+              <p className="text-xs text-muted-foreground break-all">
+                {window.location.origin}/profile/{userId}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">People you may know</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">Connect with others to grow your network.</p>
+            <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
+              Show all <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </CardContent>
+        </Card>
+      </aside>
     </div>
   );
 };
 
-// Sub-components for adding experience, education, skills
+// Sub-components
 const AddExperience: React.FC<{ userId: string }> = ({ userId }) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
