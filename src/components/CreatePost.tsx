@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
-import { Image, FileText, X, Smile, CalendarDays, Gift, MoreHorizontal, Clock } from 'lucide-react';
+import { Image, FileText, X, Smile, CalendarDays, Gift, MoreHorizontal, Clock, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
@@ -96,8 +96,11 @@ const CreatePost = () => {
             <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
               <Image className="h-5 w-5 text-primary" /> Photo
             </Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
+              <Video className="h-5 w-5 text-green-600" /> Video
+            </Button>
             <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setIsArticle(true); setDialogOpen(true); }}>
-              <FileText className="h-5 w-5 text-linkedin-warm" /> Article
+              <FileText className="h-5 w-5 text-linkedin-warm" /> Write article
             </Button>
           </div>
         </CardContent>
