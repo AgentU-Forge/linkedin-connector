@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
-import { Image, FileText, X, Smile, CalendarDays, Gift, MoreHorizontal, Clock } from 'lucide-react';
+import { Image, FileText, X, Smile, CalendarDays, Gift, MoreHorizontal, Clock, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
