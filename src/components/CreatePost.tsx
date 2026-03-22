@@ -96,8 +96,11 @@ const CreatePost = () => {
             <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
               <Image className="h-5 w-5 text-primary" /> Photo
             </Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
+              <Video className="h-5 w-5 text-green-600" /> Video
+            </Button>
             <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setIsArticle(true); setDialogOpen(true); }}>
-              <FileText className="h-5 w-5 text-linkedin-warm" /> Article
+              <FileText className="h-5 w-5 text-linkedin-warm" /> Write article
             </Button>
           </div>
         </CardContent>
