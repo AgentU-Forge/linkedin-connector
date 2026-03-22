@@ -50,6 +50,7 @@ const Auth = () => {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
             <Briefcase className="h-6 w-6 text-primary-foreground" />
           </div>
+          <p className="text-sm font-bold tracking-tight text-foreground">PRO NET</p>
           <CardTitle className="text-2xl font-bold">
             {isLogin ? 'Sign in' : 'Join now'}
           </CardTitle>
