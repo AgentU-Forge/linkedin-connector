@@ -39,7 +39,7 @@ const Feed = () => {
       <aside className="lg:col-span-3 hidden lg:block">
         <div className="sticky top-20 space-y-4">
           <div className="rounded-lg bg-card border p-4 text-sm text-muted-foreground">
-            <p className="font-semibold text-foreground mb-2">LinkedIn Clone</p>
+           <p className="font-semibold text-foreground mb-2">PRO NET</p>
             <p>AI Assistant and Premium features coming soon.</p>
           </div>
         </div>
