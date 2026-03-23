@@ -116,7 +116,7 @@ const PostJobForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
       if (docFile) {
         docUrl = await uploadFile('job-documents', user.id, docFile);
       }
-      await ((supabase.from('jobs') as any) as any).insert({
+      await (supabase.from('jobs') as any).insert({
         user_id: user.id,
         title: form.title,
         company: form.company,
