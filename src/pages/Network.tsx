@@ -5,8 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { UserPlus, Check, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { UserPlus, Check, X, MessageSquare } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const Network = () => {
@@ -39,6 +39,20 @@ const Network = () => {
     enabled: !!user,
   });
 
+  // Sent pending requests (to show "Pending" state on suggestion cards)
+  const { data: sentPending = [] } = useQuery({
+    queryKey: ['sent-pending', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('connections')
+        .select('*')
+        .eq('requester_id', user!.id)
+        .eq('status', 'pending');
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
   const { data: suggestions = [] } = useQuery({
     queryKey: ['suggestions', user?.id],
     queryFn: async () => {
@@ -46,7 +60,13 @@ const Network = () => {
         c.requester_id === user!.id ? c.receiver_id : c.requester_id
       );
       const pendingIds = pendingRequests.map((r: any) => r.requester_id);
-      const excludeIds = [...connectedIds, ...pendingIds, user!.id];
+      const sentPendingIds = sentPending.map((r: any) => r.receiver_id);
+      const excludeIds = [...connectedIds, ...pendingIds, ...sentPendingIds, user!.id];
+
+      if (excludeIds.length <= 1) {
+        const { data } = await supabase.from('profiles').select('*').neq('user_id', user!.id).limit(10);
+        return data || [];
+      }
 
       const { data } = await supabase
         .from('profiles')
@@ -60,14 +80,16 @@ const Network = () => {
 
   const respondToRequest = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      await supabase.from('connections').update({ status }).eq('id', id);
+      if (status === 'ignored') {
+        await supabase.from('connections').delete().eq('id', id);
+      } else {
+        await supabase.from('connections').update({ status }).eq('id', id);
+      }
       if (status === 'accepted') {
         const conn = pendingRequests.find((r: any) => r.id === id);
         if (conn) {
           await supabase.from('notifications').insert({
-            user_id: conn.requester_id,
-            actor_id: user!.id,
-            type: 'connection_accepted',
+            user_id: conn.requester_id, actor_id: user!.id, type: 'connection_accepted',
           });
         }
       }
@@ -75,6 +97,8 @@ const Network = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-requests'] });
       queryClient.invalidateQueries({ queryKey: ['connections'] });
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-status'] });
       toast.success('Done!');
     },
   });
@@ -90,7 +114,7 @@ const Network = () => {
                 key={req.id}
                 userId={req.requester_id}
                 onAccept={() => respondToRequest.mutate({ id: req.id, status: 'accepted' })}
-                onReject={() => respondToRequest.mutate({ id: req.id, status: 'rejected' })}
+                onReject={() => respondToRequest.mutate({ id: req.id, status: 'ignored' })}
               />
             ))}
           </CardContent>
@@ -149,14 +173,15 @@ const ConnectionRequestCard: React.FC<{ userId: string; onAccept: () => void; on
         </div>
       </Link>
       <div className="flex gap-2">
-        <Button size="icon" variant="ghost" onClick={onReject}><X className="h-4 w-4" /></Button>
-        <Button size="icon" onClick={onAccept}><Check className="h-4 w-4" /></Button>
+        <Button size="sm" variant="outline" onClick={onReject}>Ignore</Button>
+        <Button size="sm" onClick={onAccept}>Accept</Button>
       </div>
     </div>
   );
 };
 
 const ConnectionCard: React.FC<{ userId: string }> = ({ userId }) => {
+  const navigate = useNavigate();
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
@@ -168,16 +193,21 @@ const ConnectionCard: React.FC<{ userId: string }> = ({ userId }) => {
   if (!profile) return null;
 
   return (
-    <Link to={`/profile/${userId}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary">
-      <Avatar>
-        <AvatarImage src={profile.avatar_url || ''} />
-        <AvatarFallback>{profile.full_name?.charAt(0)}</AvatarFallback>
-      </Avatar>
-      <div>
-        <p className="font-semibold text-sm">{profile.full_name}</p>
-        <p className="text-xs text-muted-foreground">{profile.headline}</p>
-      </div>
-    </Link>
+    <div className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary">
+      <Link to={`/profile/${userId}`} className="flex items-center gap-3">
+        <Avatar>
+          <AvatarImage src={profile.avatar_url || ''} />
+          <AvatarFallback>{profile.full_name?.charAt(0)}</AvatarFallback>
+        </Avatar>
+        <div>
+          <p className="font-semibold text-sm">{profile.full_name}</p>
+          <p className="text-xs text-muted-foreground">{profile.headline}</p>
+        </div>
+      </Link>
+      <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
+        <MessageSquare className="h-4 w-4 mr-1" /> Message
+      </Button>
+    </div>
   );
 };
 
@@ -185,23 +215,43 @@ const SuggestionCard: React.FC<{ profile: any }> = ({ profile }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const { data: existingConn } = useQuery({
+    queryKey: ['connection-status', user?.id, profile.user_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('connections')
+        .select('*')
+        .or(`and(requester_id.eq.${user!.id},receiver_id.eq.${profile.user_id}),and(requester_id.eq.${profile.user_id},receiver_id.eq.${user!.id})`)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const connect = useMutation({
     mutationFn: async () => {
+      if (existingConn?.status === 'pending' && existingConn.requester_id === user!.id) {
+        // Cancel
+        await supabase.from('connections').delete().eq('id', existingConn.id);
+        toast.success('Request cancelled');
+        return;
+      }
       await supabase.from('connections').insert({
-        requester_id: user!.id,
-        receiver_id: profile.user_id,
+        requester_id: user!.id, receiver_id: profile.user_id,
       });
       await supabase.from('notifications').insert({
-        user_id: profile.user_id,
-        actor_id: user!.id,
-        type: 'connection_request',
+        user_id: profile.user_id, actor_id: user!.id, type: 'connection_request',
       });
+      toast.success('Request sent!');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suggestions'] });
-      toast.success('Request sent!');
+      queryClient.invalidateQueries({ queryKey: ['connection-status'] });
+      queryClient.invalidateQueries({ queryKey: ['sent-pending'] });
     },
   });
+
+  const isPending = existingConn?.status === 'pending' && existingConn?.requester_id === user?.id;
 
   return (
     <Card>
@@ -214,8 +264,17 @@ const SuggestionCard: React.FC<{ profile: any }> = ({ profile }) => {
           <p className="font-semibold text-sm mt-2">{profile.full_name}</p>
           <p className="text-xs text-muted-foreground">{profile.headline}</p>
         </Link>
-        <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => connect.mutate()}>
-          <UserPlus className="h-4 w-4 mr-1" /> Connect
+        <Button
+          size="sm"
+          variant={isPending ? 'secondary' : 'outline'}
+          className="mt-3 w-full"
+          onClick={() => connect.mutate()}
+        >
+          {isPending ? (
+            'Pending'
+          ) : (
+            <><UserPlus className="h-4 w-4 mr-1" /> Connect</>
+          )}
         </Button>
       </CardContent>
     </Card>

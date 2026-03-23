@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/lib/storage';
@@ -13,15 +13,17 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   Camera, Pencil, Plus, MapPin, Globe, Briefcase, GraduationCap,
-  Eye, BarChart3, Search, Users, MessageSquare, ChevronRight, Shield, Star
+  Eye, BarChart3, Search, Users, MessageSquare, ChevronRight, Shield, Star, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard from '@/components/PostCard';
+import CreatePost from '@/components/CreatePost';
 
 const Profile = () => {
   const { userId } = useParams<{ userId: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const isOwn = user?.id === userId;
   const avatarRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
@@ -115,19 +117,27 @@ const Profile = () => {
   const sendConnectionRequest = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('connections').insert({
-        requester_id: user!.id,
-        receiver_id: userId!,
+        requester_id: user!.id, receiver_id: userId!,
       });
       if (error) throw error;
       await supabase.from('notifications').insert({
-        user_id: userId!,
-        actor_id: user!.id,
-        type: 'connection_request',
+        user_id: userId!, actor_id: user!.id, type: 'connection_request',
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connection-status'] });
       toast.success('Connection request sent!');
+    },
+  });
+
+  const cancelConnectionRequest = useMutation({
+    mutationFn: async () => {
+      if (!connectionStatus) return;
+      await supabase.from('connections').delete().eq('id', connectionStatus.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connection-status'] });
+      toast.success('Request cancelled');
     },
   });
 
@@ -147,21 +157,18 @@ const Profile = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-5xl mx-auto">
-      {/* Main Column */}
       <div className="lg:col-span-8 space-y-2">
         {/* Header Card */}
         <Card className="overflow-hidden">
           <div className="relative h-48 bg-gradient-to-r from-primary/60 to-primary">
-            {profile.cover_url && (
-              <img src={profile.cover_url} alt="" className="w-full h-full object-cover" />
-            )}
+            {profile.cover_url && <img src={profile.cover_url} alt="" className="w-full h-full object-cover" />}
             {isOwn && (
               <>
                 <input type="file" ref={coverRef} className="hidden" accept="image/*"
                   onChange={e => e.target.files?.[0] && handleImageUpload('covers', 'cover_url', e.target.files[0])} />
                 <Button size="sm" variant="secondary" className="absolute top-3 right-3 gap-1 rounded-full"
                   onClick={() => coverRef.current?.click()}>
-                  <Camera className="h-4 w-4" /> Enhance cover image
+                  <Camera className="h-4 w-4" /> Edit cover
                 </Button>
               </>
             )}
@@ -189,12 +196,9 @@ const Profile = () => {
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="icon" className="mt-20"
                       onClick={() => setEditForm({
-                        full_name: profile.full_name || '',
-                        headline: profile.headline || '',
-                        summary: profile.summary || '',
-                        location: profile.location || '',
-                        website: profile.website || '',
-                        industry: profile.industry || '',
+                        full_name: profile.full_name || '', headline: profile.headline || '',
+                        summary: profile.summary || '', location: profile.location || '',
+                        website: profile.website || '', industry: profile.industry || '',
                       })}>
                       <Pencil className="h-5 w-5" />
                     </Button>
@@ -239,14 +243,19 @@ const Profile = () => {
               </Link>
             </div>
 
-            {/* Action Buttons Row */}
+            {/* Action Buttons */}
             <div className="flex flex-wrap gap-2 mt-4">
               {isOwn ? (
                 <>
-                  <Button size="sm" className="rounded-full">Open to</Button>
-                  <Button size="sm" variant="outline" className="rounded-full">Add profile section</Button>
-                  <Button size="sm" variant="outline" className="rounded-full">Enhance profile</Button>
-                  <Button size="sm" variant="secondary" className="rounded-full">Resources</Button>
+                  <Button size="sm" className="rounded-full" onClick={() => {
+                    setEditForm({
+                      full_name: profile.full_name || '', headline: profile.headline || '',
+                      summary: profile.summary || '', location: profile.location || '',
+                      website: profile.website || '', industry: profile.industry || '',
+                    });
+                    setEditOpen(true);
+                  }}>Edit Profile</Button>
+                  <AddSectionDropdown userId={user!.id} profile={profile} setEditOpen={setEditOpen} setEditForm={setEditForm} />
                 </>
               ) : (
                 <>
@@ -255,15 +264,21 @@ const Profile = () => {
                       <Users className="h-4 w-4 mr-1" /> Connect
                     </Button>
                   )}
-                  {connectionStatus?.status === 'pending' && (
-                    <Button variant="secondary" size="sm" className="rounded-full" disabled>Pending</Button>
+                  {connectionStatus?.status === 'pending' && connectionStatus.requester_id === user?.id && (
+                    <Button variant="secondary" size="sm" className="rounded-full" onClick={() => cancelConnectionRequest.mutate()}>
+                      Pending
+                    </Button>
                   )}
                   {connectionStatus?.status === 'accepted' && (
-                    <Badge variant="secondary" className="px-3 py-1.5">Connected</Badge>
+                    <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
+                      <MessageSquare className="h-4 w-4 mr-1" /> Message
+                    </Button>
                   )}
-                  <Button size="sm" variant="outline" className="rounded-full">
-                    <MessageSquare className="h-4 w-4 mr-1" /> Message
-                  </Button>
+                  {connectionStatus?.status !== 'accepted' && (
+                    <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
+                      <MessageSquare className="h-4 w-4 mr-1" /> Message
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -286,28 +301,20 @@ const Profile = () => {
                     <Briefcase className="h-5 w-5 text-primary" />
                     <span className="font-semibold text-sm">Which industry do you work in?</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Members who add an industry receive up to 2.5 times as many profile views.</p>
+                  <p className="text-xs text-muted-foreground">Members who add an industry receive up to 2.5x more profile views.</p>
                   <Button variant="outline" size="sm" className="rounded-full text-primary border-primary" onClick={() => {
-                    setEditForm({
-                      full_name: profile.full_name || '', headline: profile.headline || '',
-                      summary: profile.summary || '', location: profile.location || '',
-                      website: profile.website || '', industry: profile.industry || '',
-                    });
+                    setEditForm({ full_name: profile.full_name || '', headline: profile.headline || '', summary: profile.summary || '', location: profile.location || '', website: profile.website || '', industry: profile.industry || '' });
                     setEditOpen(true);
                   }}>Add industry</Button>
                 </div>
                 <div className="border rounded-lg p-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <Star className="h-5 w-5 text-primary" />
-                    <span className="font-semibold text-sm">Write a summary to highlight your personality</span>
+                    <span className="font-semibold text-sm">Write a summary</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Members who include a summary receive up to 3.9 times as many profile views.</p>
+                  <p className="text-xs text-muted-foreground">Members who include a summary receive up to 3.9x more profile views.</p>
                   <Button variant="outline" size="sm" className="rounded-full text-primary border-primary" onClick={() => {
-                    setEditForm({
-                      full_name: profile.full_name || '', headline: profile.headline || '',
-                      summary: profile.summary || '', location: profile.location || '',
-                      website: profile.website || '', industry: profile.industry || '',
-                    });
+                    setEditForm({ full_name: profile.full_name || '', headline: profile.headline || '', summary: profile.summary || '', location: profile.location || '', website: profile.website || '', industry: profile.industry || '' });
                     setEditOpen(true);
                   }}>Add a summary</Button>
                 </div>
@@ -349,9 +356,6 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="w-full mt-3 text-muted-foreground">
-                Show all analytics <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -363,11 +367,7 @@ const Profile = () => {
               <CardTitle className="text-base">About</CardTitle>
               {isOwn && (
                 <Button variant="ghost" size="icon" onClick={() => {
-                  setEditForm({
-                    full_name: profile.full_name || '', headline: profile.headline || '',
-                    summary: profile.summary || '', location: profile.location || '',
-                    website: profile.website || '', industry: profile.industry || '',
-                  });
+                  setEditForm({ full_name: profile.full_name || '', headline: profile.headline || '', summary: profile.summary || '', location: profile.location || '', website: profile.website || '', industry: profile.industry || '' });
                   setEditOpen(true);
                 }}>
                   <Pencil className="h-4 w-4" />
@@ -385,16 +385,14 @@ const Profile = () => {
               <CardTitle className="text-base">Activity</CardTitle>
               <p className="text-xs text-muted-foreground">{posts.length} posts</p>
             </div>
-            {isOwn && (
-              <Button variant="outline" size="sm" className="rounded-full">Create a post</Button>
-            )}
+            {isOwn && <CreatePost />}
           </CardHeader>
           <CardContent className="space-y-4">
             {posts.slice(0, 3).map((post: any) => <PostCard key={post.id} post={post} />)}
             {posts.length === 0 && <p className="text-sm text-muted-foreground">No posts yet.</p>}
             {posts.length > 3 && (
               <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
-                Show all comments <ChevronRight className="h-4 w-4 ml-1" />
+                Show all posts <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             )}
           </CardContent>
@@ -404,26 +402,11 @@ const Profile = () => {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-5 w-5" /> Experience</CardTitle>
-            <div className="flex items-center gap-1">
-              {isOwn && <AddExperience userId={user!.id} />}
-              {isOwn && (
-                <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
-              )}
-            </div>
+            {isOwn && <AddExperience userId={user!.id} />}
           </CardHeader>
           <CardContent className="space-y-4">
             {experiences.map((exp: any) => (
-              <div key={exp.id} className="flex gap-3">
-                <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center flex-shrink-0">
-                  <Briefcase className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">{exp.title}</p>
-                  <p className="text-sm">{exp.company} · {exp.location || 'Full-time'}</p>
-                  <p className="text-xs text-muted-foreground">{exp.start_date} – {exp.is_current ? 'Present' : exp.end_date}</p>
-                  {exp.description && <p className="text-sm mt-2 text-muted-foreground">{exp.description}</p>}
-                </div>
-              </div>
+              <ExperienceItem key={exp.id} exp={exp} isOwn={isOwn} userId={userId!} />
             ))}
             {experiences.length === 0 && <p className="text-sm text-muted-foreground">No experience added yet.</p>}
           </CardContent>
@@ -433,25 +416,11 @@ const Profile = () => {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><GraduationCap className="h-5 w-5" /> Education</CardTitle>
-            <div className="flex items-center gap-1">
-              {isOwn && <AddEducation userId={user!.id} />}
-              {isOwn && (
-                <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
-              )}
-            </div>
+            {isOwn && <AddEducation userId={user!.id} />}
           </CardHeader>
           <CardContent className="space-y-4">
             {education.map((edu: any) => (
-              <div key={edu.id} className="flex gap-3">
-                <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center flex-shrink-0">
-                  <GraduationCap className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">{edu.school}</p>
-                  <p className="text-sm text-muted-foreground">{edu.degree}{edu.field_of_study ? `, ${edu.field_of_study}` : ''}</p>
-                  <p className="text-xs text-muted-foreground">{edu.start_date} – {edu.end_date || 'Present'}</p>
-                </div>
-              </div>
+              <EducationItem key={edu.id} edu={edu} isOwn={isOwn} userId={userId!} />
             ))}
             {education.length === 0 && <p className="text-sm text-muted-foreground">No education added yet.</p>}
           </CardContent>
@@ -461,19 +430,12 @@ const Profile = () => {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Shield className="h-5 w-5" /> Skills</CardTitle>
-            <div className="flex items-center gap-1">
-              {isOwn && <AddSkill userId={user!.id} />}
-              {isOwn && (
-                <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
-              )}
-            </div>
+            {isOwn && <AddSkill userId={user!.id} />}
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {skills.map((s: any) => (
-                <div key={s.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <span className="text-sm font-medium">{s.name}</span>
-                </div>
+                <SkillItem key={s.id} skill={s} isOwn={isOwn} userId={userId!} />
               ))}
               {skills.length === 0 && <p className="text-sm text-muted-foreground">No skills added yet.</p>}
             </div>
@@ -491,20 +453,15 @@ const Profile = () => {
             </div>
             <div className="border-t pt-3">
               <h3 className="font-semibold text-sm mb-1">Public profile & URL</h3>
-              <p className="text-xs text-muted-foreground break-all">
-                {window.location.origin}/profile/{userId}
-              </p>
+              <p className="text-xs text-muted-foreground break-all">{window.location.origin}/profile/{userId}</p>
             </div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">People you may know</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">People you may know</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">Connect with others to grow your network.</p>
-            <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
+            <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => navigate('/network')}>
               Show all <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </CardContent>
@@ -514,7 +471,175 @@ const Profile = () => {
   );
 };
 
-// Sub-components
+// Add Section Dropdown
+const AddSectionDropdown: React.FC<{ userId: string; profile: any; setEditOpen: (v: boolean) => void; setEditForm: (v: any) => void }> = ({ userId, profile, setEditOpen, setEditForm }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="rounded-full">Add profile section</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader><DialogTitle>Add to your profile</DialogTitle></DialogHeader>
+        <div className="space-y-2">
+          <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => { setOpen(false); setEditForm({ full_name: profile.full_name || '', headline: profile.headline || '', summary: profile.summary || '', location: profile.location || '', website: profile.website || '', industry: profile.industry || '' }); setEditOpen(true); }}>
+            <Pencil className="h-4 w-4" /> Edit Intro
+          </Button>
+          <AddExperienceInline userId={userId} onClose={() => setOpen(false)} />
+          <AddEducationInline userId={userId} onClose={() => setOpen(false)} />
+          <AddSkillInline userId={userId} onClose={() => setOpen(false)} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Experience item with edit/delete
+const ExperienceItem: React.FC<{ exp: any; isOwn: boolean; userId: string }> = ({ exp, isOwn, userId }) => {
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState({ title: exp.title, company: exp.company, location: exp.location || '', start_date: exp.start_date || '', end_date: exp.end_date || '', description: exp.description || '', is_current: exp.is_current || false });
+
+  const update = async () => {
+    await supabase.from('experiences').update(form).eq('id', exp.id);
+    queryClient.invalidateQueries({ queryKey: ['experiences', userId] });
+    setEditOpen(false);
+    toast.success('Updated!');
+  };
+
+  const remove = async () => {
+    await supabase.from('experiences').delete().eq('id', exp.id);
+    queryClient.invalidateQueries({ queryKey: ['experiences', userId] });
+    toast.success('Deleted!');
+  };
+
+  return (
+    <div className="flex gap-3 group">
+      <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center flex-shrink-0">
+        <Briefcase className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <div className="flex-1">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-semibold text-sm">{exp.title}</p>
+            <p className="text-sm">{exp.company} · {exp.location || 'Full-time'}</p>
+            <p className="text-xs text-muted-foreground">{exp.start_date} – {exp.is_current ? 'Present' : exp.end_date}</p>
+            {exp.description && <p className="text-sm mt-2 text-muted-foreground">{exp.description}</p>}
+          </div>
+          {isOwn && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="h-3.5 w-3.5" /></Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Edit Experience</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+                    <Input placeholder="Company" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
+                    <Input placeholder="Location" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
+                      <Input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} disabled={form.is_current} />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={form.is_current} onChange={e => setForm(f => ({ ...f, is_current: e.target.checked }))} /> Currently working here
+                    </label>
+                    <Textarea placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+                    <Button onClick={update} className="w-full">Save</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={remove}><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Education item with edit/delete
+const EducationItem: React.FC<{ edu: any; isOwn: boolean; userId: string }> = ({ edu, isOwn, userId }) => {
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState({ school: edu.school, degree: edu.degree || '', field_of_study: edu.field_of_study || '', start_date: edu.start_date || '', end_date: edu.end_date || '', description: edu.description || '' });
+
+  const update = async () => {
+    await supabase.from('education').update(form).eq('id', edu.id);
+    queryClient.invalidateQueries({ queryKey: ['education', userId] });
+    setEditOpen(false);
+    toast.success('Updated!');
+  };
+
+  const remove = async () => {
+    await supabase.from('education').delete().eq('id', edu.id);
+    queryClient.invalidateQueries({ queryKey: ['education', userId] });
+    toast.success('Deleted!');
+  };
+
+  return (
+    <div className="flex gap-3 group">
+      <div className="h-12 w-12 rounded bg-secondary flex items-center justify-center flex-shrink-0">
+        <GraduationCap className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <div className="flex-1">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-semibold text-sm">{edu.school}</p>
+            <p className="text-sm text-muted-foreground">{edu.degree}{edu.field_of_study ? `, ${edu.field_of_study}` : ''}</p>
+            <p className="text-xs text-muted-foreground">{edu.start_date} – {edu.end_date || 'Present'}</p>
+            {edu.description && <p className="text-sm mt-2 text-muted-foreground">{edu.description}</p>}
+          </div>
+          {isOwn && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="h-3.5 w-3.5" /></Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Edit Education</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="School" value={form.school} onChange={e => setForm(f => ({ ...f, school: e.target.value }))} />
+                    <Input placeholder="Degree" value={form.degree} onChange={e => setForm(f => ({ ...f, degree: e.target.value }))} />
+                    <Input placeholder="Field of study" value={form.field_of_study} onChange={e => setForm(f => ({ ...f, field_of_study: e.target.value }))} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
+                      <Input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
+                    </div>
+                    <Textarea placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+                    <Button onClick={update} className="w-full">Save</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={remove}><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Skill item with delete
+const SkillItem: React.FC<{ skill: any; isOwn: boolean; userId: string }> = ({ skill, isOwn, userId }) => {
+  const queryClient = useQueryClient();
+
+  const remove = async () => {
+    await supabase.from('skills').delete().eq('id', skill.id);
+    queryClient.invalidateQueries({ queryKey: ['skills', userId] });
+    toast.success('Skill removed!');
+  };
+
+  return (
+    <div className="flex items-center justify-between py-2 border-b last:border-0 group">
+      <span className="text-sm font-medium">{skill.name}</span>
+      {isOwn && (
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={remove}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+};
+
+// Sub-components for adding
 const AddExperience: React.FC<{ userId: string }> = ({ userId }) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -542,8 +667,7 @@ const AddExperience: React.FC<{ userId: string }> = ({ userId }) => {
             <Input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} disabled={form.is_current} />
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.is_current} onChange={e => setForm(f => ({ ...f, is_current: e.target.checked }))} />
-            Currently working here
+            <input type="checkbox" checked={form.is_current} onChange={e => setForm(f => ({ ...f, is_current: e.target.checked }))} /> Currently working here
           </label>
           <Textarea placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
           <Button onClick={add} className="w-full" disabled={!form.title || !form.company}>Add</Button>
@@ -609,6 +733,117 @@ const AddSkill: React.FC<{ userId: string }> = ({ userId }) => {
         </div>
       </DialogContent>
     </Dialog>
+  );
+};
+
+// Inline add buttons for AddSectionDropdown
+const AddExperienceInline: React.FC<{ userId: string; onClose: () => void }> = ({ userId, onClose }) => {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
+
+  const add = async () => {
+    await supabase.from('experiences').insert({ ...form, user_id: userId });
+    queryClient.invalidateQueries({ queryKey: ['experiences', userId] });
+    setOpen(false);
+    onClose();
+    toast.success('Experience added!');
+  };
+
+  return (
+    <>
+      <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
+        <Briefcase className="h-4 w-4" /> Add Experience
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Experience</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            <Input placeholder="Company" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
+            <Input placeholder="Location" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
+              <Input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} disabled={form.is_current} />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.is_current} onChange={e => setForm(f => ({ ...f, is_current: e.target.checked }))} /> Currently working here
+            </label>
+            <Textarea placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+            <Button onClick={add} className="w-full" disabled={!form.title || !form.company}>Add</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+const AddEducationInline: React.FC<{ userId: string; onClose: () => void }> = ({ userId, onClose }) => {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
+
+  const add = async () => {
+    await supabase.from('education').insert({ ...form, user_id: userId });
+    queryClient.invalidateQueries({ queryKey: ['education', userId] });
+    setOpen(false);
+    onClose();
+    toast.success('Education added!');
+  };
+
+  return (
+    <>
+      <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
+        <GraduationCap className="h-4 w-4" /> Add Education
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Education</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="School" value={form.school} onChange={e => setForm(f => ({ ...f, school: e.target.value }))} />
+            <Input placeholder="Degree" value={form.degree} onChange={e => setForm(f => ({ ...f, degree: e.target.value }))} />
+            <Input placeholder="Field of study" value={form.field_of_study} onChange={e => setForm(f => ({ ...f, field_of_study: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
+              <Input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
+            </div>
+            <Button onClick={add} className="w-full" disabled={!form.school}>Add</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+const AddSkillInline: React.FC<{ userId: string; onClose: () => void }> = ({ userId, onClose }) => {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+
+  const add = async () => {
+    await supabase.from('skills').insert({ name, user_id: userId });
+    queryClient.invalidateQueries({ queryKey: ['skills', userId] });
+    setOpen(false);
+    onClose();
+    setName('');
+    toast.success('Skill added!');
+  };
+
+  return (
+    <>
+      <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
+        <Shield className="h-4 w-4" /> Add Skill
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Skill</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="Skill name" value={name} onChange={e => setName(e.target.value)} />
+            <Button onClick={add} className="w-full" disabled={!name.trim()}>Add</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
