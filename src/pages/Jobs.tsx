@@ -29,7 +29,7 @@ const Jobs = () => {
   const { data: jobs = [], isLoading } = useQuery({
     queryKey: ['jobs'],
     queryFn: async () => {
-      const { data } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+      const { data } = await (supabase.from('jobs') as any).select('*').order('created_at', { ascending: false });
       return data || [];
     },
   });
@@ -116,7 +116,7 @@ const PostJobForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
       if (docFile) {
         docUrl = await uploadFile('job-documents', user.id, docFile);
       }
-      await (supabase.from('jobs') as any).insert({
+      await ((supabase.from('jobs') as any) as any).insert({
         user_id: user.id,
         title: form.title,
         company: form.company,
@@ -310,7 +310,7 @@ const ApplyForm: React.FC<{ job: any; onSuccess: () => void }> = ({ job, onSucce
         }
       }
 
-      await supabase.from('job_applications').insert({
+      await (supabase.from('job_applications') as any).insert({
         job_id: job.id,
         applicant_id: user.id,
         answers: finalAnswers,

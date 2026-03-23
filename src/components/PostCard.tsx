@@ -137,13 +137,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
     mutationFn: async () => {
       if (!user) return;
       // Check if already reposted
-      const { data: existing } = await supabase.from('reposts').select('id').eq('post_id', post.id).eq('reposted_by', user.id).maybeSingle();
+      const { data: existing } = await (supabase.from('reposts') as any).select('id').eq('post_id', post.id).eq('reposted_by', user.id).maybeSingle();
       if (existing) {
-        await supabase.from('reposts').delete().eq('id', existing.id);
+        await (supabase.from('reposts') as any).delete().eq('id', existing.id);
         toast.success('Repost removed');
         return;
       }
-      await supabase.from('reposts').insert({ post_id: post.id, reposted_by: user.id });
+      await (supabase.from('reposts') as any).insert({ post_id: post.id, reposted_by: user.id });
       if (post.user_id !== user.id) {
         await supabase.from('notifications').insert({
           user_id: post.user_id, actor_id: user.id, type: 'repost', post_id: post.id,
