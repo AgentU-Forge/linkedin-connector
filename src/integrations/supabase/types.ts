@@ -161,6 +161,89 @@ export type Database = {
         }
         Relationships: []
       }
+      job_applications: {
+        Row: {
+          answers: Json | null
+          applicant_id: string
+          applied_at: string
+          cv_url: string | null
+          id: string
+          job_id: string
+        }
+        Insert: {
+          answers?: Json | null
+          applicant_id: string
+          applied_at?: string
+          cv_url?: string | null
+          id?: string
+          job_id: string
+        }
+        Update: {
+          answers?: Json | null
+          applicant_id?: string
+          applied_at?: string
+          cv_url?: string | null
+          id?: string
+          job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          company: string
+          created_at: string
+          custom_fields: Json | null
+          deadline: string | null
+          description: string
+          document_url: string | null
+          id: string
+          job_type: string
+          location: string
+          skills: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          custom_fields?: Json | null
+          deadline?: string | null
+          description: string
+          document_url?: string | null
+          id?: string
+          job_type?: string
+          location: string
+          skills?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          custom_fields?: Json | null
+          deadline?: string | null
+          description?: string
+          document_url?: string | null
+          id?: string
+          job_type?: string
+          location?: string
+          skills?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string
@@ -338,6 +421,35 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      reposts: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          reposted_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          reposted_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          reposted_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reposts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       skills: {
         Row: {

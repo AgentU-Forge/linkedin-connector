@@ -16,14 +16,24 @@ const Navbar = () => {
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user!.id)
-        .single();
+      const { data } = await supabase.from('profiles').select('*').eq('user_id', user!.id).single();
       return data;
     },
     enabled: !!user,
+  });
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['unread-count', user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user!.id)
+        .eq('is_read', false);
+      return count || 0;
+    },
+    enabled: !!user,
+    refetchInterval: 10000,
   });
 
   const navItems = [
@@ -31,7 +41,7 @@ const Navbar = () => {
     { to: '/network', icon: Users, label: 'My Network' },
     { to: '/jobs', icon: Briefcase, label: 'Jobs' },
     { to: '/messaging', icon: MessageSquare, label: 'Messaging' },
-    { to: '/notifications', icon: Bell, label: 'Notifications' },
+    { to: '/notifications', icon: Bell, label: 'Notifications', badge: unreadCount },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -57,13 +67,20 @@ const Navbar = () => {
             <Link
               key={item.to}
               to={item.to}
-              className={`flex flex-col items-center px-3 py-1 text-xs transition-colors ${
+              className={`relative flex flex-col items-center px-3 py-1 text-xs transition-colors ${
                 isActive(item.to)
                   ? 'text-foreground border-b-2 border-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <item.icon className="h-5 w-5" />
+              <div className="relative">
+                <item.icon className="h-5 w-5" />
+                {item.badge && item.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </div>
               <span className="hidden md:inline mt-0.5">{item.label}</span>
             </Link>
           ))}
