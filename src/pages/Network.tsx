@@ -181,12 +181,30 @@ const ConnectionRequestCard: React.FC<{ userId: string; onAccept: () => void; on
 };
 
 const ConnectionCard: React.FC<{ userId: string }> = ({ userId }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+
   const { data: profile } = useQuery({
     queryKey: ['profile', userId],
     queryFn: async () => {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
       return data;
+    },
+  });
+
+  const disconnect = useMutation({
+    mutationFn: async () => {
+      await supabase.from('connections').delete()
+        .or(`and(requester_id.eq.${user!.id},receiver_id.eq.${userId}),and(requester_id.eq.${userId},receiver_id.eq.${user!.id})`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-status'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-count'] });
+      setDisconnectOpen(false);
+      toast.success('Connection removed');
     },
   });
 
@@ -204,9 +222,25 @@ const ConnectionCard: React.FC<{ userId: string }> = ({ userId }) => {
           <p className="text-xs text-muted-foreground">{profile.headline}</p>
         </div>
       </Link>
-      <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
-        <MessageSquare className="h-4 w-4 mr-1" /> Message
-      </Button>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" className="rounded-full" onClick={() => setDisconnectOpen(true)}>
+          Connected
+        </Button>
+        <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
+          <MessageSquare className="h-4 w-4 mr-1" /> Message
+        </Button>
+      </div>
+
+      <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Remove Connection</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Are you sure you want to remove {profile.full_name} from your connections?</p>
+          <div className="flex gap-2 justify-end mt-4">
+            <Button variant="outline" onClick={() => setDisconnectOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => disconnect.mutate()}>Yes, Remove</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
