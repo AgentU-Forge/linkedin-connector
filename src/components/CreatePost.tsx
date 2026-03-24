@@ -12,7 +12,7 @@ import { Image, FileText, X, Smile, CalendarDays, Gift, MoreHorizontal, Clock, V
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
-const CreatePost = () => {
+const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
