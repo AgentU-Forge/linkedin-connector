@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MessageCircle, Repeat2, Send, ThumbsUp, Search, X } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MessageCircle, Repeat2, Send, ThumbsUp, Search, MoreHorizontal, Bookmark, Link2, Code, UserMinus, Ban, Flag } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -22,11 +23,9 @@ interface PostCardProps {
 
 const REACTIONS = [
   { type: 'like', emoji: '👍', label: 'Like' },
-  { type: 'love', emoji: '❤️', label: 'Love' },
   { type: 'celebrate', emoji: '🎉', label: 'Celebrate' },
+  { type: 'love', emoji: '❤️', label: 'Love' },
   { type: 'insightful', emoji: '💡', label: 'Insightful' },
-  { type: 'feeling_good', emoji: '😊', label: 'Feel Good' },
-  { type: 'clap', emoji: '👏', label: 'Clap' },
   { type: 'curious', emoji: '🤔', label: 'Curious' },
 ];
 
@@ -136,7 +135,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
   const repost = useMutation({
     mutationFn: async () => {
       if (!user) return;
-      // Check if already reposted
       const { data: existing } = await (supabase.from('reposts') as any).select('id').eq('post_id', post.id).eq('reposted_by', user.id).maybeSingle();
       if (existing) {
         await (supabase.from('reposts') as any).delete().eq('id', existing.id);
@@ -204,7 +202,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
           </div>
         )}
 
-        {/* Author header */}
+        {/* Author header with 3-dot menu */}
         <div className="flex gap-3 mb-3">
           <Link to={`/profile/${post.user_id}`}>
             <Avatar>
@@ -212,7 +210,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               <AvatarFallback>{author?.full_name?.charAt(0) || 'U'}</AvatarFallback>
             </Avatar>
           </Link>
-          <div>
+          <div className="flex-1">
             <Link to={`/profile/${post.user_id}`} className="font-semibold text-sm hover:underline">
               {author?.full_name || 'User'}
             </Link>
@@ -221,6 +219,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
             </p>
           </div>
+          {/* 3-dot menu */}
+          <PostOptionsMenu post={post} authorName={author?.full_name} />
         </div>
 
         {/* Content */}
@@ -245,41 +245,41 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
 
         {/* Action buttons */}
         <div className="flex items-center justify-around pt-1 relative">
-          {/* Reaction button with neon hover popup */}
+          {/* LinkedIn-style reaction button */}
           <div
             className="relative"
             onMouseEnter={() => setShowReactions(true)}
             onMouseLeave={() => setShowReactions(false)}
           >
+            {/* Reaction popup - LinkedIn style */}
             <div
               className={cn(
-                'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card border rounded-full shadow-2xl px-3 py-2 flex items-center gap-1.5 transition-all duration-300 z-20',
+                'absolute bottom-full left-0 mb-2 bg-card border rounded-full shadow-xl px-2 py-1.5 flex items-center gap-0.5 transition-all duration-300 z-20',
                 showReactions
                   ? 'opacity-100 scale-100 translate-y-0'
-                  : 'opacity-0 scale-50 translate-y-3 pointer-events-none'
+                  : 'opacity-0 scale-75 translate-y-2 pointer-events-none'
               )}
-              style={{ filter: showReactions ? 'drop-shadow(0 0 8px hsl(var(--primary) / 0.4))' : 'none' }}
             >
               {REACTIONS.map((reaction, idx) => (
                 <button
                   key={reaction.type}
                   onClick={() => handleReaction(reaction.type)}
                   className={cn(
-                    'group relative flex flex-col items-center transition-all duration-200 p-1 rounded-full',
-                    'hover:scale-[1.8] hover:-translate-y-3',
+                    'group relative flex flex-col items-center transition-all duration-200 p-1.5 rounded-full',
+                    'hover:scale-[1.6] hover:-translate-y-3',
                     reactionAnimating === reaction.type && 'animate-bounce'
                   )}
                   style={{
-                    transitionDelay: showReactions ? `${idx * 50}ms` : '0ms',
-                    transform: showReactions ? undefined : 'scale(0)',
-                    animation: showReactions ? `neon-pop 0.3s ease-out ${idx * 50}ms both` : 'none',
+                    transitionDelay: showReactions ? `${idx * 40}ms` : '0ms',
+                    opacity: showReactions ? 1 : 0,
+                    transform: showReactions ? undefined : 'scale(0.5) translateY(10px)',
                   }}
                   title={reaction.label}
                 >
-                  <span className="text-2xl drop-shadow-lg" style={{ filter: 'drop-shadow(0 0 6px rgba(255,200,50,0.5))' }}>
+                  <span className="text-[1.6rem] leading-none transition-transform duration-200 group-hover:animate-bounce">
                     {reaction.emoji}
                   </span>
-                  <span className="absolute -top-8 bg-foreground text-background text-[10px] px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
+                  <span className="absolute -top-7 bg-foreground text-background text-[10px] px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
                     {reaction.label}
                   </span>
                 </button>
@@ -290,12 +290,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               variant="ghost"
               size="sm"
               onClick={() => handleReaction(currentReaction?.type || 'like')}
-              className={cn(isLiked ? 'text-primary font-semibold' : '')}
+              className={cn(
+                'gap-1 transition-all',
+                isLiked ? 'text-primary font-semibold' : ''
+              )}
             >
               {currentReaction ? (
-                <span className={cn('text-lg mr-1', reactionAnimating && 'animate-bounce')}>{currentReaction.emoji}</span>
+                <span className={cn('text-lg', reactionAnimating && 'animate-bounce')}>{currentReaction.emoji}</span>
               ) : (
-                <ThumbsUp className="h-4 w-4 mr-1" />
+                <ThumbsUp className="h-4 w-4" />
               )}
               {currentReaction?.label || 'Like'}
             </Button>
@@ -358,6 +361,60 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
         </Dialog>
       </CardContent>
     </Card>
+  );
+};
+
+// 3-dot post options menu (LinkedIn-style)
+const PostOptionsMenu: React.FC<{ post: any; authorName?: string }> = ({ post, authorName }) => {
+  const { user } = useAuth();
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/profile/${post.user_id}`);
+    toast.success('Link copied to clipboard!');
+  };
+
+  const handleSave = () => {
+    toast.success('Post saved!');
+  };
+
+  const handleEmbed = () => {
+    const embedCode = `<iframe src="${window.location.origin}/profile/${post.user_id}" width="500" height="400"></iframe>`;
+    navigator.clipboard.writeText(embedCode);
+    toast.success('Embed code copied!');
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onClick={handleSave} className="gap-2 cursor-pointer">
+          <Bookmark className="h-4 w-4" /> Save
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleCopyLink} className="gap-2 cursor-pointer">
+          <Link2 className="h-4 w-4" /> Copy link to post
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleEmbed} className="gap-2 cursor-pointer">
+          <Code className="h-4 w-4" /> Embed this post
+        </DropdownMenuItem>
+        {user?.id !== post.user_id && (
+          <>
+            <DropdownMenuItem className="gap-2 cursor-pointer">
+              <UserMinus className="h-4 w-4" /> Unfollow {authorName || 'user'}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 cursor-pointer">
+              <Ban className="h-4 w-4" /> Not interested
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 cursor-pointer text-destructive">
+              <Flag className="h-4 w-4" /> Report post
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

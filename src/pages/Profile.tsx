@@ -11,9 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Camera, Pencil, Plus, MapPin, Globe, Briefcase, GraduationCap,
-  Eye, BarChart3, Search, Users, MessageSquare, ChevronRight, Shield, Star, Trash2
+  Eye, BarChart3, Search, Users, MessageSquare, ChevronRight, Shield, Star, Trash2,
+  ChevronUp, ChevronDown, Send, Bookmark, Activity, Info, FileText, Award, FolderOpen, BookOpen, Heart
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard from '@/components/PostCard';
@@ -27,6 +30,7 @@ const Profile = () => {
   const isOwn = user?.id === userId;
   const avatarRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: '', headline: '', summary: '', location: '', website: '', industry: '' });
@@ -138,6 +142,20 @@ const Profile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connection-status'] });
       toast.success('Request cancelled');
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      if (!connectionStatus) return;
+      await supabase.from('connections').delete().eq('id', connectionStatus.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['connection-status'] });
+      queryClient.invalidateQueries({ queryKey: ['connections'] });
+      queryClient.invalidateQueries({ queryKey: ['connection-count'] });
+      setDisconnectOpen(false);
+      toast.success('Connection removed');
     },
   });
 
@@ -256,6 +274,7 @@ const Profile = () => {
                     setEditOpen(true);
                   }}>Edit Profile</Button>
                   <AddSectionDropdown userId={user!.id} profile={profile} setEditOpen={setEditOpen} setEditForm={setEditForm} />
+                  <ResourcesDropdown userId={userId!} profile={profile} />
                 </>
               ) : (
                 <>
@@ -269,21 +288,43 @@ const Profile = () => {
                       Pending
                     </Button>
                   )}
+                  {connectionStatus?.status === 'pending' && connectionStatus.receiver_id === user?.id && (
+                    <Button variant="secondary" size="sm" className="rounded-full" disabled>
+                      Respond in Notifications
+                    </Button>
+                  )}
                   {connectionStatus?.status === 'accepted' && (
+                    <>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => setDisconnectOpen(true)}>
+                        <Users className="h-4 w-4 mr-1" /> Connected
+                      </Button>
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
+                        <MessageSquare className="h-4 w-4 mr-1" /> Message
+                      </Button>
+                    </>
+                  )}
+                  {!connectionStatus?.status || connectionStatus?.status === 'pending' ? (
                     <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
                       <MessageSquare className="h-4 w-4 mr-1" /> Message
                     </Button>
-                  )}
-                  {connectionStatus?.status !== 'accepted' && (
-                    <Button size="sm" variant="outline" className="rounded-full" onClick={() => navigate('/messaging')}>
-                      <MessageSquare className="h-4 w-4 mr-1" /> Message
-                    </Button>
-                  )}
+                  ) : null}
                 </>
               )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Disconnect Confirmation Dialog */}
+        <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader><DialogTitle>Remove Connection</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">Are you sure you want to remove {profile.full_name} from your connections?</p>
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" onClick={() => setDisconnectOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => disconnectMutation.mutate()}>Yes, Remove</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Suggested for you */}
         {isOwn && (
@@ -385,7 +426,13 @@ const Profile = () => {
               <CardTitle className="text-base">Activity</CardTitle>
               <p className="text-xs text-muted-foreground">{posts.length} posts</p>
             </div>
-            {isOwn && <CreatePost />}
+            {isOwn && (
+              <CreatePost trigger={
+                <Button size="sm" variant="outline" className="rounded-full">
+                  <Plus className="h-4 w-4 mr-1" /> Create a post
+                </Button>
+              } />
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {posts.slice(0, 3).map((post: any) => <PostCard key={post.id} post={post} />)}
@@ -471,24 +518,118 @@ const Profile = () => {
   );
 };
 
-// Add Section Dropdown
+// Resources Dropdown
+const ResourcesDropdown: React.FC<{ userId: string; profile: any }> = ({ userId, profile }) => {
+  const navigate = useNavigate();
+
+  const handleSendProfile = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/profile/${userId}`);
+    toast.success('Profile link copied! You can paste it in a message.');
+    navigate('/messaging');
+  };
+
+  const handleSavePDF = () => {
+    window.print();
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/profile/${userId}`);
+    toast.success('Profile link copied!');
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline" className="rounded-full">Resources</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuItem onClick={handleSendProfile} className="gap-2 cursor-pointer">
+          <Send className="h-4 w-4" /> Send profile in a message
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleSavePDF} className="gap-2 cursor-pointer">
+          <FileText className="h-4 w-4" /> Save to PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleCopyLink} className="gap-2 cursor-pointer">
+          <Bookmark className="h-4 w-4" /> Saved items
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          const el = document.getElementById('activity-section');
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }} className="gap-2 cursor-pointer">
+          <Activity className="h-4 w-4" /> Activity
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2 cursor-pointer">
+          <Info className="h-4 w-4" /> About this profile
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+// Add Section Dropdown — LinkedIn-style with Core / Recommended / Additional accordions
 const AddSectionDropdown: React.FC<{ userId: string; profile: any; setEditOpen: (v: boolean) => void; setEditForm: (v: any) => void }> = ({ userId, profile, setEditOpen, setEditForm }) => {
   const [open, setOpen] = useState(false);
+  const [coreOpen, setCoreOpen] = useState(true);
+  const [recommendedOpen, setRecommendedOpen] = useState(false);
+  const [additionalOpen, setAdditionalOpen] = useState(false);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="rounded-full">Add profile section</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Add to your profile</DialogTitle></DialogHeader>
-        <div className="space-y-2">
-          <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => { setOpen(false); setEditForm({ full_name: profile.full_name || '', headline: profile.headline || '', summary: profile.summary || '', location: profile.location || '', website: profile.website || '', industry: profile.industry || '' }); setEditOpen(true); }}>
-            <Pencil className="h-4 w-4" /> Edit Intro
-          </Button>
-          <AddExperienceInline userId={userId} onClose={() => setOpen(false)} />
-          <AddEducationInline userId={userId} onClose={() => setOpen(false)} />
-          <AddSkillInline userId={userId} onClose={() => setOpen(false)} />
-        </div>
+      <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Add to profile</DialogTitle></DialogHeader>
+
+        {/* Core */}
+        <Collapsible open={coreOpen} onOpenChange={setCoreOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full py-3 border-b">
+            <span className="font-semibold text-sm">Core</span>
+            {coreOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-0">
+            <p className="text-xs text-muted-foreground py-2">Start with the basics. Filling out these sections will help you be discovered by recruiters and people you may know</p>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded" onClick={() => {
+              setOpen(false);
+              setEditForm({ full_name: profile.full_name || '', headline: profile.headline || '', summary: profile.summary || '', location: profile.location || '', website: profile.website || '', industry: profile.industry || '' });
+              setEditOpen(true);
+            }}>Add about</button>
+            <AddEducationInline userId={userId} onClose={() => setOpen(false)} />
+            <AddExperienceInline userId={userId} onClose={() => setOpen(false)} />
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add services</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add career break</button>
+            <AddSkillInline userId={userId} onClose={() => setOpen(false)} />
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Recommended */}
+        <Collapsible open={recommendedOpen} onOpenChange={setRecommendedOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full py-3 border-b">
+            <span className="font-semibold text-sm">Recommended</span>
+            {recommendedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-0">
+            <p className="text-xs text-muted-foreground py-2">Completing these sections will increase your credibility and give you access to more opportunities</p>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add featured</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add licenses & certifications</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add projects</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add courses</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add recommendations</button>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Additional */}
+        <Collapsible open={additionalOpen} onOpenChange={setAdditionalOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full py-3 border-b">
+            <span className="font-semibold text-sm">Additional</span>
+            {additionalOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-0">
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add volunteer experience</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add publications</button>
+            <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded opacity-50 cursor-not-allowed">Add languages</button>
+          </CollapsibleContent>
+        </Collapsible>
       </DialogContent>
     </Dialog>
   );
@@ -752,9 +893,9 @@ const AddExperienceInline: React.FC<{ userId: string; onClose: () => void }> = (
 
   return (
     <>
-      <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
-        <Briefcase className="h-4 w-4" /> Add Experience
-      </Button>
+      <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded" onClick={() => setOpen(true)}>
+        Add position
+      </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Experience</DialogTitle></DialogHeader>
@@ -793,9 +934,9 @@ const AddEducationInline: React.FC<{ userId: string; onClose: () => void }> = ({
 
   return (
     <>
-      <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
-        <GraduationCap className="h-4 w-4" /> Add Education
-      </Button>
+      <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded" onClick={() => setOpen(true)}>
+        Add education
+      </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Education</DialogTitle></DialogHeader>
@@ -831,9 +972,9 @@ const AddSkillInline: React.FC<{ userId: string; onClose: () => void }> = ({ use
 
   return (
     <>
-      <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
-        <Shield className="h-4 w-4" /> Add Skill
-      </Button>
+      <button className="w-full text-left py-3 border-b text-sm hover:bg-secondary/50 px-2 rounded" onClick={() => setOpen(true)}>
+        Add skills
+      </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Skill</DialogTitle></DialogHeader>
