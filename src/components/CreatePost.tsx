@@ -78,33 +78,37 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
 
   return (
     <>
-      {/* Trigger Card */}
-      <Card className="cursor-pointer" onClick={() => setDialogOpen(true)}>
-        <CardContent className="p-4">
-          <div className="flex gap-3 items-center">
-            <Avatar>
-              <AvatarImage src={profile?.avatar_url || ''} />
-              <AvatarFallback>{profile?.full_name?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <div
-              className="flex-1 rounded-full border border-input px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              What do you want to talk about?
+      {/* Trigger */}
+      {trigger ? (
+        <div onClick={() => setDialogOpen(true)}>{trigger}</div>
+      ) : (
+        <Card className="cursor-pointer" onClick={() => setDialogOpen(true)}>
+          <CardContent className="p-4">
+            <div className="flex gap-3 items-center">
+              <Avatar>
+                <AvatarImage src={profile?.avatar_url || ''} />
+                <AvatarFallback>{profile?.full_name?.charAt(0) || 'U'}</AvatarFallback>
+              </Avatar>
+              <div
+                className="flex-1 rounded-full border border-input px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                What do you want to talk about?
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1 mt-3 ml-12">
-            <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
-              <Image className="h-5 w-5 text-primary" /> Photo
-            </Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
-              <Video className="h-5 w-5 text-green-600" /> Video
-            </Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setIsArticle(true); setDialogOpen(true); }}>
-              <FileText className="h-5 w-5 text-linkedin-warm" /> Write article
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex items-center gap-1 mt-3 ml-12">
+              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
+                <Image className="h-5 w-5 text-primary" /> Photo
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
+                <Video className="h-5 w-5 text-green-600" /> Video
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setIsArticle(true); setDialogOpen(true); }}>
+                <FileText className="h-5 w-5 text-linkedin-warm" /> Write article
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Create Post Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
