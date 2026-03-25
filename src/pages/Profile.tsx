@@ -124,8 +124,8 @@ const Profile = () => {
         requester_id: user!.id, receiver_id: userId!,
       });
       if (error) throw error;
-      await supabase.from('notifications').insert({
-        user_id: userId!, actor_id: user!.id, type: 'connection_request',
+      await supabase.rpc('insert_unique_notification', {
+        p_user_id: userId!, p_actor_id: user!.id, p_type: 'connection_request',
       });
     },
     onSuccess: () => {
