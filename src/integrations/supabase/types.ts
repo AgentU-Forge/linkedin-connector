@@ -352,6 +352,7 @@ export type Database = {
           post_type: string
           updated_at: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
           article_cover_url?: string | null
@@ -363,6 +364,7 @@ export type Database = {
           post_type?: string
           updated_at?: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
           article_cover_url?: string | null
@@ -374,6 +376,7 @@ export type Database = {
           post_type?: string
           updated_at?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -472,15 +475,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      insert_unique_notification: {
+        Args: {
+          p_actor_id: string
+          p_post_id?: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -607,6 +643,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
