@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,10 @@ const Messaging = () => {
   const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
+  const [messages, setMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Get connected users to message
+  // Get connected users
   const { data: connections = [] } = useQuery({
     queryKey: ['connections', user?.id],
     queryFn: async () => {
@@ -34,29 +35,58 @@ const Messaging = () => {
     c.requester_id === user?.id ? c.receiver_id : c.requester_id
   );
 
-  const { data: messages = [] } = useQuery({
-    queryKey: ['messages', user?.id, selectedUser],
-    queryFn: async () => {
-      if (!selectedUser) return [];
+  // Fetch initial messages when user is selected
+  useEffect(() => {
+    if (!selectedUser || !user) return;
+    const fetchMessages = async () => {
       const { data } = await supabase
         .from('messages')
         .select('*')
-        .or(`and(sender_id.eq.${user!.id},receiver_id.eq.${selectedUser}),and(sender_id.eq.${selectedUser},receiver_id.eq.${user!.id})`)
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${selectedUser}),and(sender_id.eq.${selectedUser},receiver_id.eq.${user.id})`)
         .order('created_at', { ascending: true });
+      setMessages(data || []);
 
       // Mark as read
       await supabase
         .from('messages')
         .update({ is_read: true })
         .eq('sender_id', selectedUser)
-        .eq('receiver_id', user!.id)
+        .eq('receiver_id', user.id)
         .eq('is_read', false);
+    };
+    fetchMessages();
+  }, [selectedUser, user]);
 
-      return data || [];
-    },
-    enabled: !!user && !!selectedUser,
-    refetchInterval: 3000,
-  });
+  // Realtime subscription for messages
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('messages-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+      }, (payload) => {
+        const msg = payload.new as any;
+        // Only add if relevant to current conversation
+        if (
+          (msg.sender_id === user.id && msg.receiver_id === selectedUser) ||
+          (msg.sender_id === selectedUser && msg.receiver_id === user.id)
+        ) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          // Mark as read if from other user
+          if (msg.sender_id === selectedUser) {
+            supabase.from('messages').update({ is_read: true }).eq('id', msg.id);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, selectedUser]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,18 +94,19 @@ const Messaging = () => {
 
   const sendMessage = async () => {
     if (!messageText.trim() || !selectedUser || !user) return;
+    const content = messageText;
+    setMessageText('');
     await supabase.from('messages').insert({
       sender_id: user.id,
       receiver_id: selectedUser,
-      content: messageText,
+      content,
     });
-    await supabase.from('notifications').insert({
-      user_id: selectedUser,
-      actor_id: user.id,
-      type: 'message',
+    // Use unique notification
+    await supabase.rpc('insert_unique_notification', {
+      p_user_id: selectedUser,
+      p_actor_id: user.id,
+      p_type: 'message',
     });
-    setMessageText('');
-    queryClient.invalidateQueries({ queryKey: ['messages', user.id, selectedUser] });
   };
 
   return (
@@ -108,9 +139,9 @@ const Messaging = () => {
                 {messages.map((msg: any) => (
                   <div
                     key={msg.id}
-                    className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'} animate-fade-in`}
                   >
-                    <div className={`max-w-[70%] rounded-lg p-3 text-sm ${
+                    <div className={`max-w-[70%] rounded-lg p-3 text-sm transition-all ${
                       msg.sender_id === user?.id
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-secondary'

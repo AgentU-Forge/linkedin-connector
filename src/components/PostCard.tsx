@@ -100,15 +100,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
         await supabase.from('likes').delete().eq('user_id', user.id).eq('post_id', post.id);
         await supabase.from('likes').insert({ user_id: user.id, post_id: post.id, reaction_type: reactionType });
         if (post.user_id !== user.id) {
-          await supabase.from('notifications').insert({
-            user_id: post.user_id, actor_id: user.id, type: 'reaction', post_id: post.id,
+          await supabase.rpc('insert_unique_notification', {
+            p_user_id: post.user_id, p_actor_id: user.id, p_type: 'reaction', p_post_id: post.id,
           });
         }
       } else {
         await supabase.from('likes').insert({ user_id: user.id, post_id: post.id, reaction_type: reactionType });
         if (post.user_id !== user.id) {
-          await supabase.from('notifications').insert({
-            user_id: post.user_id, actor_id: user.id, type: 'reaction', post_id: post.id,
+          await supabase.rpc('insert_unique_notification', {
+            p_user_id: post.user_id, p_actor_id: user.id, p_type: 'reaction', p_post_id: post.id,
           });
         }
       }
@@ -121,8 +121,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
       if (!user || !commentText.trim()) return;
       await supabase.from('comments').insert({ user_id: user.id, post_id: post.id, content: commentText });
       if (post.user_id !== user.id) {
-        await supabase.from('notifications').insert({
-          user_id: post.user_id, actor_id: user.id, type: 'comment', post_id: post.id,
+        await supabase.rpc('insert_unique_notification', {
+          p_user_id: post.user_id, p_actor_id: user.id, p_type: 'comment', p_post_id: post.id,
         });
       }
     },
@@ -143,8 +143,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
       }
       await (supabase.from('reposts') as any).insert({ post_id: post.id, reposted_by: user.id });
       if (post.user_id !== user.id) {
-        await supabase.from('notifications').insert({
-          user_id: post.user_id, actor_id: user.id, type: 'repost', post_id: post.id,
+        await supabase.rpc('insert_unique_notification', {
+          p_user_id: post.user_id, p_actor_id: user.id, p_type: 'repost', p_post_id: post.id,
         });
       }
       toast.success('Reposted!');
@@ -166,10 +166,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
     if (!user || selectedUsers.length === 0) return;
     const postLink = `${window.location.origin}/profile/${post.user_id}`;
     const message = `📌 Shared a post by ${author?.full_name || 'someone'}:\n\n"${post.content?.slice(0, 100)}${post.content?.length > 100 ? '...' : ''}"\n\n${postLink}`;
-    
+
     for (const receiverId of selectedUsers) {
       await supabase.from('messages').insert({ sender_id: user.id, receiver_id: receiverId, content: message });
-      await supabase.from('notifications').insert({ user_id: receiverId, actor_id: user.id, type: 'message' });
+      await supabase.rpc('insert_unique_notification', {
+        p_user_id: receiverId, p_actor_id: user.id, p_type: 'message',
+      });
     }
     toast.success(`Sent to ${selectedUsers.length} connection(s)!`);
     setSelectedUsers([]);
@@ -189,7 +191,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
   );
 
   return (
-    <Card>
+    <Card className="transition-all hover:shadow-md">
       <CardContent className="p-4">
         {/* Repost label */}
         {isRepost && repostedByProfile && (
@@ -202,10 +204,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
           </div>
         )}
 
-        {/* Author header with 3-dot menu */}
+        {/* Author header */}
         <div className="flex gap-3 mb-3">
           <Link to={`/profile/${post.user_id}`}>
-            <Avatar>
+            <Avatar className="transition-transform hover:scale-105">
               <AvatarImage src={author?.avatar_url || ''} />
               <AvatarFallback>{author?.full_name?.charAt(0) || 'U'}</AvatarFallback>
             </Avatar>
@@ -219,7 +221,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
             </p>
           </div>
-          {/* 3-dot menu */}
           <PostOptionsMenu post={post} authorName={author?.full_name} />
         </div>
 
@@ -227,6 +228,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
         {post.article_title && <h3 className="text-lg font-bold mb-2">{post.article_title}</h3>}
         <p className="text-sm whitespace-pre-wrap mb-3">{post.content}</p>
         {post.image_url && <img src={post.image_url} alt="" className="rounded-lg w-full max-h-96 object-cover mb-3" />}
+        {post.video_url && (
+          <video src={post.video_url} controls className="rounded-lg w-full max-h-96 mb-3" />
+        )}
 
         {/* Reaction summary */}
         <div className="flex items-center justify-between text-xs text-muted-foreground py-2 border-b">
@@ -245,13 +249,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
 
         {/* Action buttons */}
         <div className="flex items-center justify-around pt-1 relative">
-          {/* LinkedIn-style reaction button */}
           <div
             className="relative"
             onMouseEnter={() => setShowReactions(true)}
             onMouseLeave={() => setShowReactions(false)}
           >
-            {/* Reaction popup - LinkedIn style */}
             <div
               className={cn(
                 'absolute bottom-full left-0 mb-2 bg-card border rounded-full shadow-xl px-2 py-1.5 flex items-center gap-0.5 transition-all duration-300 z-20',
@@ -300,22 +302,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               ) : (
                 <ThumbsUp className="h-4 w-4" />
               )}
-              {currentReaction?.label || 'Like'}
+              <span className="hidden sm:inline">{currentReaction?.label || 'Like'}</span>
             </Button>
           </div>
 
           <Button variant="ghost" size="sm" onClick={() => setShowComments(!showComments)}>
-            <MessageCircle className="h-4 w-4 mr-1" /> Comment
+            <MessageCircle className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Comment</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={() => repost.mutate()}>
-            <Repeat2 className="h-4 w-4 mr-1" /> Repost
+            <Repeat2 className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Repost</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSendOpen(true)}>
-            <Send className="h-4 w-4 mr-1" /> Send
+            <Send className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Send</span>
           </Button>
         </div>
 
-        {/* Comments section */}
+        {/* Comments */}
         {showComments && (
           <div className="mt-3 space-y-3 animate-fade-in">
             {comments.map((c: any) => <CommentItem key={c.id} comment={c} />)}
@@ -334,7 +336,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
           </div>
         )}
 
-        {/* Send to connections dialog */}
+        {/* Send dialog */}
         <Dialog open={sendOpen} onOpenChange={setSendOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>Send to connections</DialogTitle></DialogHeader>
@@ -364,24 +366,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
   );
 };
 
-// 3-dot post options menu (LinkedIn-style)
 const PostOptionsMenu: React.FC<{ post: any; authorName?: string }> = ({ post, authorName }) => {
   const { user } = useAuth();
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/profile/${post.user_id}`);
-    toast.success('Link copied to clipboard!');
-  };
-
-  const handleSave = () => {
-    toast.success('Post saved!');
-  };
-
-  const handleEmbed = () => {
-    const embedCode = `<iframe src="${window.location.origin}/profile/${post.user_id}" width="500" height="400"></iframe>`;
-    navigator.clipboard.writeText(embedCode);
-    toast.success('Embed code copied!');
-  };
 
   return (
     <DropdownMenu>
@@ -391,13 +377,13 @@ const PostOptionsMenu: React.FC<{ post: any; authorName?: string }> = ({ post, a
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={handleSave} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => toast.success('Post saved!')} className="gap-2 cursor-pointer">
           <Bookmark className="h-4 w-4" /> Save
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleCopyLink} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/profile/${post.user_id}`); toast.success('Link copied!'); }} className="gap-2 cursor-pointer">
           <Link2 className="h-4 w-4" /> Copy link to post
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleEmbed} className="gap-2 cursor-pointer">
+        <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(`<iframe src="${window.location.origin}/profile/${post.user_id}" width="500" height="400"></iframe>`); toast.success('Embed code copied!'); }} className="gap-2 cursor-pointer">
           <Code className="h-4 w-4" /> Embed this post
         </DropdownMenuItem>
         {user?.id !== post.user_id && (
@@ -455,7 +441,7 @@ const CommentItem: React.FC<{ comment: any }> = ({ comment }) => {
   });
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 animate-fade-in">
       <Avatar className="h-8 w-8">
         <AvatarImage src={author?.avatar_url || ''} />
         <AvatarFallback className="text-xs">{author?.full_name?.charAt(0) || 'U'}</AvatarFallback>

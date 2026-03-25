@@ -18,11 +18,14 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
   const [content, setContent] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isArticle, setIsArticle] = useState(false);
   const [articleTitle, setArticleTitle] = useState('');
   const [posting, setPosting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -38,6 +41,22 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
     if (file) {
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
+      setVideoFile(null);
+      setVideoPreview(null);
+    }
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('Video must be under 50MB');
+        return;
+      }
+      setVideoFile(file);
+      setVideoPreview(URL.createObjectURL(file));
+      setImageFile(null);
+      setImagePreview(null);
     }
   };
 
@@ -46,24 +65,32 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
     setPosting(true);
     try {
       let imageUrl = null;
+      let videoUrl = null;
       if (imageFile) {
         imageUrl = await uploadFile('post-images', user.id, imageFile);
+      }
+      if (videoFile) {
+        videoUrl = await uploadFile('post-videos', user.id, videoFile);
       }
       const { error } = await supabase.from('posts').insert({
         user_id: user.id,
         content,
         image_url: imageUrl,
+        video_url: videoUrl,
         post_type: isArticle ? 'article' : 'post',
         article_title: isArticle ? articleTitle : null,
-      });
+      } as any);
       if (error) throw error;
       setContent('');
       setImageFile(null);
       setImagePreview(null);
+      setVideoFile(null);
+      setVideoPreview(null);
       setIsArticle(false);
       setArticleTitle('');
       setDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
       toast.success('Post published!');
     } catch (err: any) {
       toast.error(err.message);
@@ -72,26 +99,19 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
     }
   };
 
-  const resetAndClose = () => {
-    setDialogOpen(false);
-  };
-
   return (
     <>
-      {/* Trigger */}
       {trigger ? (
         <div onClick={() => setDialogOpen(true)}>{trigger}</div>
       ) : (
-        <Card className="cursor-pointer" onClick={() => setDialogOpen(true)}>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDialogOpen(true)}>
           <CardContent className="p-4">
             <div className="flex gap-3 items-center">
               <Avatar>
                 <AvatarImage src={profile?.avatar_url || ''} />
                 <AvatarFallback>{profile?.full_name?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
-              <div
-                className="flex-1 rounded-full border border-input px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
+              <div className="flex-1 rounded-full border border-input px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
                 What do you want to talk about?
               </div>
             </div>
@@ -100,7 +120,7 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
                 <Image className="h-5 w-5 text-primary" /> Photo
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setDialogOpen(true); }}>
-                <Video className="h-5 w-5 text-green-600" /> Video
+                <Video className="h-5 w-5 text-linkedin-green" /> Video
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={e => { e.stopPropagation(); setIsArticle(true); setDialogOpen(true); }}>
                 <FileText className="h-5 w-5 text-linkedin-warm" /> Write article
@@ -110,7 +130,6 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
         </Card>
       )}
 
-      {/* Create Post Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[550px] p-0 gap-0">
           <DialogHeader className="p-4 pb-0">
@@ -145,7 +164,7 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
               autoFocus
             />
             {imagePreview && (
-              <div className="relative mt-3">
+              <div className="relative mt-3 animate-fade-in">
                 <img src={imagePreview} alt="Preview" className="rounded-lg max-h-64 w-full object-cover" />
                 <Button
                   variant="destructive"
@@ -157,21 +176,36 @@ const CreatePost: React.FC<{ trigger?: React.ReactNode }> = ({ trigger }) => {
                 </Button>
               </div>
             )}
+            {videoPreview && (
+              <div className="relative mt-3 animate-fade-in">
+                <video src={videoPreview} controls className="rounded-lg max-h-64 w-full" />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-6 w-6 rounded-full"
+                  onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Emoji button */}
           <div className="px-4 pb-1">
             <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
               <Smile className="h-5 w-5" />
             </Button>
           </div>
 
-          {/* Bottom toolbar */}
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <div className="flex items-center gap-0.5">
               <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
+              <input type="file" ref={videoRef} className="hidden" accept="video/*" onChange={handleVideoSelect} />
               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => fileRef.current?.click()}>
                 <Image className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-linkedin-green" onClick={() => videoRef.current?.click()}>
+                <Video className="h-5 w-5" />
               </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={() => setIsArticle(!isArticle)}>
                 <CalendarDays className="h-5 w-5" />
