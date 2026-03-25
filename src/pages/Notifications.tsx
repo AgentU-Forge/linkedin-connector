@@ -71,8 +71,8 @@ const Notifications = () => {
       
       if (action === 'accepted') {
         await supabase.from('connections').update({ status: 'accepted' }).eq('id', conn.id);
-        await supabase.from('notifications').insert({
-          user_id: actorId, actor_id: user!.id, type: 'connection_accepted',
+        await supabase.rpc('insert_unique_notification', {
+          p_user_id: actorId, p_actor_id: user!.id, p_type: 'connection_accepted',
         });
         toast.success('Connection accepted!');
       } else {

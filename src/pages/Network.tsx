@@ -89,8 +89,8 @@ const Network = () => {
       if (status === 'accepted') {
         const conn = pendingRequests.find((r: any) => r.id === id);
         if (conn) {
-          await supabase.from('notifications').insert({
-            user_id: conn.requester_id, actor_id: user!.id, type: 'connection_accepted',
+          await supabase.rpc('insert_unique_notification', {
+            p_user_id: conn.requester_id, p_actor_id: user!.id, p_type: 'connection_accepted',
           });
         }
       }
