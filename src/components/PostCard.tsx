@@ -36,6 +36,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
   const [showComments, setShowComments] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [reactionAnimating, setReactionAnimating] = useState<string | null>(null);
+  const reactionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendSearch, setSendSearch] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
