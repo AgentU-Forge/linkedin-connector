@@ -528,8 +528,34 @@ const ResourcesDropdown: React.FC<{ userId: string; profile: any }> = ({ userId,
     navigate('/messaging');
   };
 
-  const handleSavePDF = () => {
-    window.print();
+  const handleSavePDF = async () => {
+    toast.info('Generating PDF...');
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+      const element = document.querySelector('.max-w-5xl') as HTMLElement;
+      if (!element) { toast.error('Could not capture profile'); return; }
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save(`${profile.full_name || 'profile'}-cv.pdf`);
+      toast.success('PDF downloaded!');
+    } catch (err) {
+      toast.error('Failed to generate PDF');
+    }
   };
 
   const handleCopyLink = () => {
@@ -787,7 +813,15 @@ const AddExperience: React.FC<{ userId: string }> = ({ userId }) => {
   const [form, setForm] = useState({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
 
   const add = async () => {
-    await supabase.from('experiences').insert({ ...form, user_id: userId });
+    if (!form.title || !form.company) return;
+    const insertData: any = { title: form.title, company: form.company, user_id: userId };
+    if (form.location) insertData.location = form.location;
+    if (form.start_date) insertData.start_date = form.start_date;
+    if (form.end_date && !form.is_current) insertData.end_date = form.end_date;
+    if (form.description) insertData.description = form.description;
+    insertData.is_current = form.is_current;
+    const { error } = await supabase.from('experiences').insert(insertData);
+    if (error) { toast.error('Failed to add: ' + error.message); return; }
     queryClient.invalidateQueries({ queryKey: ['experiences', userId] });
     setOpen(false);
     setForm({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
@@ -824,9 +858,17 @@ const AddEducation: React.FC<{ userId: string }> = ({ userId }) => {
   const [form, setForm] = useState({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
 
   const add = async () => {
-    await supabase.from('education').insert({ ...form, user_id: userId });
+    if (!form.school) return;
+    const insertData: any = { school: form.school, user_id: userId };
+    if (form.degree) insertData.degree = form.degree;
+    if (form.field_of_study) insertData.field_of_study = form.field_of_study;
+    if (form.start_date) insertData.start_date = form.start_date;
+    if (form.end_date) insertData.end_date = form.end_date;
+    const { error } = await supabase.from('education').insert(insertData);
+    if (error) { toast.error('Failed to add: ' + error.message); return; }
     queryClient.invalidateQueries({ queryKey: ['education', userId] });
     setOpen(false);
+    setForm({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
     toast.success('Education added!');
   };
 
@@ -884,10 +926,19 @@ const AddExperienceInline: React.FC<{ userId: string; onClose: () => void }> = (
   const [form, setForm] = useState({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
 
   const add = async () => {
-    await supabase.from('experiences').insert({ ...form, user_id: userId });
+    if (!form.title || !form.company) return;
+    const insertData: any = { title: form.title, company: form.company, user_id: userId };
+    if (form.location) insertData.location = form.location;
+    if (form.start_date) insertData.start_date = form.start_date;
+    if (form.end_date && !form.is_current) insertData.end_date = form.end_date;
+    if (form.description) insertData.description = form.description;
+    insertData.is_current = form.is_current;
+    const { error } = await supabase.from('experiences').insert(insertData);
+    if (error) { toast.error('Failed to add: ' + error.message); return; }
     queryClient.invalidateQueries({ queryKey: ['experiences', userId] });
     setOpen(false);
     onClose();
+    setForm({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
     toast.success('Experience added!');
   };
 
@@ -925,10 +976,18 @@ const AddEducationInline: React.FC<{ userId: string; onClose: () => void }> = ({
   const [form, setForm] = useState({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
 
   const add = async () => {
-    await supabase.from('education').insert({ ...form, user_id: userId });
+    if (!form.school) return;
+    const insertData: any = { school: form.school, user_id: userId };
+    if (form.degree) insertData.degree = form.degree;
+    if (form.field_of_study) insertData.field_of_study = form.field_of_study;
+    if (form.start_date) insertData.start_date = form.start_date;
+    if (form.end_date) insertData.end_date = form.end_date;
+    const { error } = await supabase.from('education').insert(insertData);
+    if (error) { toast.error('Failed to add: ' + error.message); return; }
     queryClient.invalidateQueries({ queryKey: ['education', userId] });
     setOpen(false);
     onClose();
+    setForm({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
     toast.success('Education added!');
   };
 

@@ -22,11 +22,11 @@ interface PostCardProps {
 }
 
 const REACTIONS = [
-  { type: 'like', emoji: '👍', label: 'Like' },
-  { type: 'celebrate', emoji: '🎉', label: 'Celebrate' },
-  { type: 'love', emoji: '❤️', label: 'Love' },
-  { type: 'insightful', emoji: '💡', label: 'Insightful' },
-  { type: 'curious', emoji: '🤔', label: 'Curious' },
+  { type: 'like', emoji: '👍', label: 'Like', neonColor: '#00d4ff' },
+  { type: 'celebrate', emoji: '🎉', label: 'Celebrate', neonColor: '#ff6bff' },
+  { type: 'love', emoji: '❤️', label: 'Love', neonColor: '#ff3366' },
+  { type: 'insightful', emoji: '💡', label: 'Insightful', neonColor: '#ffdd00' },
+  { type: 'curious', emoji: '🤔', label: 'Curious', neonColor: '#00ff88' },
 ];
 
 const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
@@ -36,6 +36,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
   const [showComments, setShowComments] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [reactionAnimating, setReactionAnimating] = useState<string | null>(null);
+  const reactionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendSearch, setSendSearch] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -251,12 +252,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
         <div className="flex items-center justify-around pt-1 relative">
           <div
             className="relative"
-            onMouseEnter={() => setShowReactions(true)}
-            onMouseLeave={() => setShowReactions(false)}
+            onMouseEnter={() => {
+              if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
+              setShowReactions(true);
+            }}
+            onMouseLeave={() => {
+              reactionTimeoutRef.current = setTimeout(() => setShowReactions(false), 1000);
+            }}
           >
             <div
               className={cn(
-                'absolute bottom-full left-0 mb-2 bg-card border rounded-full shadow-xl px-2 py-1.5 flex items-center gap-0.5 transition-all duration-300 z-20',
+                'absolute bottom-full left-0 mb-2 bg-card border rounded-full shadow-xl px-3 py-2 flex items-center gap-1 transition-all duration-300 z-20',
                 showReactions
                   ? 'opacity-100 scale-100 translate-y-0'
                   : 'opacity-0 scale-75 translate-y-2 pointer-events-none'
@@ -265,23 +271,31 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               {REACTIONS.map((reaction, idx) => (
                 <button
                   key={reaction.type}
-                  onClick={() => handleReaction(reaction.type)}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleReaction(reaction.type);
+                  }}
                   className={cn(
-                    'group relative flex flex-col items-center transition-all duration-200 p-1.5 rounded-full',
-                    'hover:scale-[1.6] hover:-translate-y-3',
+                    'group relative flex flex-col items-center p-1.5 rounded-full cursor-pointer select-none',
+                    'transition-all duration-200 ease-out',
+                    'hover:scale-[1.8] hover:-translate-y-4',
                     reactionAnimating === reaction.type && 'animate-bounce'
                   )}
                   style={{
-                    transitionDelay: showReactions ? `${idx * 40}ms` : '0ms',
+                    transitionDelay: showReactions ? `${idx * 60}ms` : '0ms',
                     opacity: showReactions ? 1 : 0,
-                    transform: showReactions ? undefined : 'scale(0.5) translateY(10px)',
+                    transform: showReactions ? undefined : 'scale(0.3) translateY(10px)',
+                    filter: `drop-shadow(0 0 6px ${reaction.neonColor})`,
                   }}
                   title={reaction.label}
                 >
-                  <span className="text-[1.6rem] leading-none transition-transform duration-200 group-hover:animate-bounce">
+                  <span className="text-[1.8rem] leading-none transition-transform duration-200 group-hover:animate-bounce"
+                    style={{ filter: `drop-shadow(0 0 8px ${reaction.neonColor})` }}>
                     {reaction.emoji}
                   </span>
-                  <span className="absolute -top-7 bg-foreground text-background text-[10px] px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
+                  <span className="absolute -top-8 bg-foreground text-background text-[10px] px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
                     {reaction.label}
                   </span>
                 </button>
@@ -298,7 +312,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
               )}
             >
               {currentReaction ? (
-                <span className={cn('text-lg', reactionAnimating && 'animate-bounce')}>{currentReaction.emoji}</span>
+                <span className={cn('text-lg', reactionAnimating && 'animate-bounce')}
+                  style={{ filter: `drop-shadow(0 0 6px ${currentReaction.neonColor})` }}>
+                  {currentReaction.emoji}
+                </span>
               ) : (
                 <ThumbsUp className="h-4 w-4" />
               )}
