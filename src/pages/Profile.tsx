@@ -813,7 +813,15 @@ const AddExperience: React.FC<{ userId: string }> = ({ userId }) => {
   const [form, setForm] = useState({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
 
   const add = async () => {
-    await supabase.from('experiences').insert({ ...form, user_id: userId });
+    if (!form.title || !form.company) return;
+    const insertData: any = { title: form.title, company: form.company, user_id: userId };
+    if (form.location) insertData.location = form.location;
+    if (form.start_date) insertData.start_date = form.start_date;
+    if (form.end_date && !form.is_current) insertData.end_date = form.end_date;
+    if (form.description) insertData.description = form.description;
+    insertData.is_current = form.is_current;
+    const { error } = await supabase.from('experiences').insert(insertData);
+    if (error) { toast.error('Failed to add: ' + error.message); return; }
     queryClient.invalidateQueries({ queryKey: ['experiences', userId] });
     setOpen(false);
     setForm({ title: '', company: '', location: '', start_date: '', end_date: '', description: '', is_current: false });
