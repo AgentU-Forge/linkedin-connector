@@ -976,10 +976,18 @@ const AddEducationInline: React.FC<{ userId: string; onClose: () => void }> = ({
   const [form, setForm] = useState({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
 
   const add = async () => {
-    await supabase.from('education').insert({ ...form, user_id: userId });
+    if (!form.school) return;
+    const insertData: any = { school: form.school, user_id: userId };
+    if (form.degree) insertData.degree = form.degree;
+    if (form.field_of_study) insertData.field_of_study = form.field_of_study;
+    if (form.start_date) insertData.start_date = form.start_date;
+    if (form.end_date) insertData.end_date = form.end_date;
+    const { error } = await supabase.from('education').insert(insertData);
+    if (error) { toast.error('Failed to add: ' + error.message); return; }
     queryClient.invalidateQueries({ queryKey: ['education', userId] });
     setOpen(false);
     onClose();
+    setForm({ school: '', degree: '', field_of_study: '', start_date: '', end_date: '' });
     toast.success('Education added!');
   };
 
