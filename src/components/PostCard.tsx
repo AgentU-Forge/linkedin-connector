@@ -22,11 +22,11 @@ interface PostCardProps {
 }
 
 const REACTIONS = [
-  { type: 'like', emoji: '👍', label: 'Like' },
-  { type: 'celebrate', emoji: '🎉', label: 'Celebrate' },
-  { type: 'love', emoji: '❤️', label: 'Love' },
-  { type: 'insightful', emoji: '💡', label: 'Insightful' },
-  { type: 'curious', emoji: '🤔', label: 'Curious' },
+  { type: 'like', emoji: '👍', label: 'Like', neonColor: '#00d4ff' },
+  { type: 'celebrate', emoji: '🎉', label: 'Celebrate', neonColor: '#ff6bff' },
+  { type: 'love', emoji: '❤️', label: 'Love', neonColor: '#ff3366' },
+  { type: 'insightful', emoji: '💡', label: 'Insightful', neonColor: '#ffdd00' },
+  { type: 'curious', emoji: '🤔', label: 'Curious', neonColor: '#00ff88' },
 ];
 
 const PostCard: React.FC<PostCardProps> = ({ post, isRepost, repostedBy }) => {
